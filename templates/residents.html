@@ -1,0 +1,554 @@
+{% extends "layout.html" %}
+
+{% block title %}户籍管理{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 搜索区 -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <form id="searchForm" class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">搜索类型</label>
+                    <select class="form-select" name="searchType">
+                        <option value="name">姓名</option>
+                        <option value="id_card">身份证号</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">搜索内容</label>
+                    <input type="text" class="form-control" name="searchQuery">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary">搜索</button>
+                    <button type="button" id="createButton" class="btn btn-secondary ms-2">新建</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- 多结果选择区 -->
+    <div id="multipleResults" class="card mb-3 d-none">
+        <div class="card-body">
+            <h5 class="card-title">请选择要查看的村民</h5>
+            <ul class="list-group" id="resultsList">
+                <!-- 动态生成的搜索结果 -->
+            </ul>
+        </div>
+    </div>
+
+    <!-- 结果展示区 -->
+    <div id="searchResults" class="d-none">
+        <!-- 搜索结果列表 -->
+    </div>
+
+    <!-- 详细信息表单 -->
+    <div id="residentDetail" class="card d-none">
+        <div class="card-body">
+            <form id="residentForm" class="row g-3">
+                <!-- 添加隐藏的ID字段 -->
+                <input type="hidden" name="id">
+
+                <!-- 户号和户籍地组 -->
+                <div class="col-md-6">
+                    <label class="form-label">户号</label>
+                    <input type="text" class="form-control" name="household_number" list="householdNumbers">
+                    <datalist id="householdNumbers">
+                        <!-- 可在后端 render_template 时用已有户号填充 -->
+                        <!-- <option value="HH0001" /> 等... -->
+                    </datalist>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label">户籍地组</label>
+                    <input type="text" class="form-control" name="household_address_group" required>
+                </div>
+
+                <!-- 姓名和公民身份证号码 -->
+                <div class="col-md-6">
+                    <label class="form-label">姓名</label>
+                    <input type="text" class="form-control" name="name" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">公民身份证号码</label>
+                    <input type="text" class="form-control" name="id_card" required>
+                </div>
+
+                <!-- 在详细信息表单中添加原始身份证号字段 -->
+                <div class="col-md-6">
+                    <label class="form-label">原始身份证号</label>
+                    <input type="text" class="form-control" name="original_id_card">
+                </div>
+
+                <!-- 性别和出生日期 -->
+                <div class="col-md-3">
+                    <label class="form-label">性别</label>
+                    <select class="form-select" name="gender" required>
+                        <option value="男">男</option>
+                        <option value="女">女</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">出生日期</label>
+                    <input type="date" class="form-control" name="birth_date" required>
+                </div>
+
+                <!-- 民族和电话 -->
+                <div class="col-md-3">
+                    <label class="form-label">民族</label>
+                    <input type="text" class="form-control" name="ethnicity">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">电话</label>
+                    <input type="text" class="form-control" name="phone">
+                </div>
+
+                <!-- 省、市、县 -->
+                <div class="col-md-4">
+                    <label class="form-label">省</label>
+                    <input type="text" class="form-control" name="province">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">市</label>
+                    <input type="text" class="form-control" name="city">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">县</label>
+                    <input type="text" class="form-control" name="county">
+                </div>
+
+                <!-- 详址和银行卡号 -->
+                <div class="col-md-6">
+                    <label class="form-label">详址</label>
+                    <input type="text" class="form-control" name="detailed_address">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">银行卡号</label>
+                    <input type="text" class="form-control" name="bank_account">
+                </div>
+
+                <!-- 工区和户主 -->
+                <div class="col-md-6">
+                    <label class="form-label">工区</label>
+                    <input type="text" class="form-control" name="area" required>
+                    </input>
+                </div>
+
+
+                <!-- 户主关系和户主姓名 -->
+                <div class="col-md-6">
+                    <label class="form-label">户主关系</label>
+                    <input type="text" class="form-control" name="relationship">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">户主姓名</label>
+                    <input type="text" class="form-control" name="household_head_name" readonly>
+                </div>
+
+                <!-- 提名日和截止提名日周岁 -->
+                <div class="col-md-6">
+                    <label class="form-label">提名日</label>
+                    <input type="date" class="form-control" name="nomination_date">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">截止提名日周岁</label>
+                    <input type="number" class="form-control" name="age_at_nomination" readonly>
+                </div>
+
+                <!-- 社区村居委会和户籍地组 -->
+                <!-- 修改社区村居委会字段的name属性 -->
+                <div class="col-md-6">
+                    <label class="form-label">社区村居委会</label>
+                    <input type="text" class="form-control" name="community">
+                </div>
+
+                <div class="col-md-6 form-check d-flex align-items-center">
+                    <input type="checkbox" class="form-check-input me-2" name="welfare_eligible" checked>
+                    <label class="form-check-label">是否享有基础福利</label>
+                </div>
+                
+                <div class="col-md-6 form-check d-flex align-items-center">
+                    <input type="checkbox" class="form-check-input me-2" name="elderly_welfare_eligible" checked>
+                    <label class="form-check-label">是否享有养老福利</label>
+                </div>
+
+                <div class="col-md-6 form-check d-flex align-items-center">
+                    <input type="checkbox" class="form-check-input me-2" name="university_welfare_eligible">
+                    <label class="form-check-label">是否享有大学生补贴</label>
+                </div>
+
+                <div class="col-md-6 form-check d-flex align-items-center">
+                    <input type="checkbox" class="form-check-input me-2" name="high_school_welfare_eligible">
+                    <label class="form-check-label">是否享有高中生补贴</label>
+                </div>
+
+                <div class="col-md-6 form-check d-flex align-items-center">
+                    <input type="checkbox" class="form-check-input me-2" name="residency_status">
+                    <label class="form-check-label">是否在籍</label>
+                </div>
+                <div class="col-md-12 form-check d-flex align-items-center">
+                    <input type="checkbox" class="form-check-input me-2" name="moved_out">
+                    <label class="form-check-label">是否迁出</label>
+                </div>
+
+                <!-- 迁出相关字段 -->
+                <div class="col-md-6 moved_out_fields d-none">
+                    <label class="form-label">迁出日期</label>
+                    <input type="date" class="form-control" name="move_out_date">
+                </div>
+                <div class="col-md-6 moved_out_fields d-none">
+                    <label class="form-label">迁出地</label>
+                    <input type="text" class="form-control" name="move_out_location">
+                </div>
+
+                <!-- 是否迁入和是否死亡 -->
+                <div class="col-md-12 form-check d-flex align-items-center">
+                    <input type="checkbox" class="form-check-input me-2" name="moved_in">
+                    <label class="form-check-label">是否迁入</label>
+                </div>
+                <div class="col-md-12 form-check d-flex align-items-center">
+                    <input type="checkbox" class="form-check-input me-2" name="deceased">
+                    <label class="form-check-label">是否死亡</label>
+                </div>
+
+                <!-- 迁入相关字段 -->
+                <div class="col-md-6 moved_in_fields d-none">
+                    <label class="form-label">迁入日期</label>
+                    <input type="date" class="form-control" name="move_in_date">
+                </div>
+                <div class="col-md-6 moved_in_fields d-none">
+                    <label class="form-label">迁入地</label>
+                    <input type="text" class="form-control" name="move_in_location">
+                </div>
+
+                <!-- 修复死亡相关字段结构 -->
+                <div class="col-md-12 deceased_fields d-none">
+                    <label class="form-label">死亡日期</label>
+                    <input type="date" class="form-control" name="death_date">
+                </div>
+
+                <!-- 同一户号人员表 -->
+                <div class="col-12 mb-3">
+                    <label class="form-label">同一户主人员</label>
+                    <ul class="list-group" id="householdMembers">
+                        <!-- 动态生成的户主成员 -->
+                    </ul>
+                </div>
+
+                <div class="col-md-12">
+                    <label class="form-label">备注信息</label>
+                    <textarea class="form-control" name="remarks" rows="3"></textarea>
+                </div>
+
+                <!-- 保存与删除按钮 -->
+                <div class="col-12">
+                    <button type="submit" class="btn btn-success">保存</button>
+                    <button type="button" id="deleteButton" class="btn btn-danger">删除</button>
+                    <button type="button" id="addMemberButton" class="btn btn-primary">添加人员</button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 处理搜索
+$('#searchForm').on('submit', function(e) {
+    e.preventDefault();
+    const searchType = $(this).find('select[name="searchType"]').val();
+    const query = $(this).find('input[name="searchQuery"]').val();
+
+    $.ajax({
+        url: '/residents/search',
+        method: 'GET',
+        data: { type: searchType, query: query },
+        success: function(data) {
+            if (data.multiple) {
+                $('#multipleResults').removeClass('d-none');
+                $('#resultsList').empty();
+                data.results.forEach(function(resident) {
+                    $('#resultsList').append(`
+                        <li class="list-group-item list-group-item-action" onclick="selectResident(${resident.id})">
+                            ${resident.name} - ${resident.id_card} - ${resident.area}
+                        </li>
+                    `);
+                });
+                $('#residentDetail').addClass('d-none');
+            } else {
+                $('#multipleResults').addClass('d-none');
+                displayResident(data.resident);
+            }
+        },
+        error: function(xhr) {
+            console.error(xhr.responseJSON.error);
+            alert('错误: ' + xhr.responseJSON.error);
+            $('#multipleResults').addClass('d-none');
+            $('#residentDetail').addClass('d-none');
+        }
+    });
+});
+
+// 选择特定村民
+function selectResident(id) {
+    $.ajax({
+        url: `/residents/${id}`,
+        method: 'GET',
+        success: function(data) {
+            $('#multipleResults').addClass('d-none');
+            displayResident(data.resident);
+        },
+        error: function(xhr) {
+            console.error(xhr.responseJSON.error);
+            alert('错误: ' + xhr.responseJSON.error);
+        }
+    });
+}
+
+// 显示村民详细信息
+function displayResident(resident) {
+    $('#residentDetail').removeClass('d-none');
+    $('#residentForm')[0].reset();
+    
+    // 填充表单数据
+    for (const key in resident) {
+        const input = $(`#residentForm [name="${key}"]`);
+        if (input.length) {
+            if (input.attr('type') === 'checkbox') {
+                input.prop('checked', resident[key]);
+            } else {
+                input.val(resident[key]);
+            }
+        }
+    }
+
+    // 设置隐藏的ID字段
+    $(`[name="id"]`).val(resident.id);
+
+    // 处理迁出、迁入、死亡字段的显示
+    if (resident.moved_out) {
+        $('.moved_out_fields').removeClass('d-none');
+    } else {
+        $('.moved_out_fields').addClass('d-none');
+    }
+
+    if (resident.moved_in) {
+        $('.moved_in_fields').removeClass('d-none');
+    } else {
+        $('.moved_in_fields').addClass('d-none');
+    }
+
+    if (resident.deceased) {
+        $('.deceased_fields').removeClass('d-none');
+    } else {
+        $('.deceased_fields').addClass('d-none');
+    }
+
+    // 填充同户成员
+    $('#householdMembers').empty();
+    if (resident.household_members && resident.household_members.length > 0) {
+        resident.household_members.forEach(function(member) {
+            // 添加调试日志
+            console.log('Household Member:', member);
+            
+            $('#householdMembers').append(`
+                <li class="list-group-item">
+                    ${member.name} - ${member.id_card} - ${member.relationship || '未定义'}
+                </li>
+            `);
+        });
+    }
+
+    if (resident.household_head && resident.household_head.household_number) {
+        $('input[name="household_number"]').val(resident.household_head.household_number);
+    }
+
+    if (resident.household_head && resident.household_head.head_name) {
+        $('[name="household_head_name"]').val(resident.household_head.head_name);
+    }
+    if (resident.household_head && resident.household_head.address_group) {
+        $('[name="household_address_group"]').val(resident.household_head.address_group);
+    }
+    $('input[name="nomination_date"]').trigger('change'); // 保持不变
+
+    // 处理福利资格复选框
+    $('[name="elderly_welfare_eligible"]').prop('checked', resident.elderly_welfare_eligible);
+    $('[name="university_welfare_eligible"]').prop('checked', resident.university_welfare_eligible);
+    $('[name="high_school_welfare_eligible"]').prop('checked', resident.high_school_welfare_eligible);
+}
+
+// 动态显示/隐藏状态相关字段
+$('input[name="moved_out"]').change(function() {
+    if ($(this).is(':checked')) {
+        $('.moved_out_fields').removeClass('d-none');
+    } else {
+        $('.moved_out_fields').addClass('d-none');
+    }
+});
+
+$('input[name="moved_in"]').change(function() {
+    if ($(this).is(':checked')) {
+        $('.moved_in_fields').removeClass('d-none');
+    } else {
+        $('.moved_in_fields').addClass('d-none');
+    }
+});
+
+$('input[name="deceased"]').change(function() {
+    if ($(this).is(':checked')) {
+        $('.deceased_fields').removeClass('d-none');
+    } else {
+        $('.deceased_fields').addClass('d-none');
+        $('[name="death_date"]').val(''); // 取消勾选时清空死亡日期
+    }
+});
+
+// 处理保存村民信息
+$('#residentForm').on('submit', function(e) {
+    e.preventDefault();
+    const formData = {};
+    $(this).serializeArray().forEach(function(item) {
+        formData[item.name] = item.value;
+    });
+
+    // 修改复选框字段处理，添加新的福利资格字段
+    [
+        'welfare_eligible', 
+        'elderly_welfare_eligible', 
+        'university_welfare_eligible', 
+        'high_school_welfare_eligible',
+        'moved_out', 
+        'moved_in', 
+        'deceased', 
+        'residency_status'
+    ].forEach(function(field) {
+        formData[field] = $(`[name="${field}"]`).is(':checked') ? 1 : 0;
+    });
+
+    let url = '/residents/new'; 
+    if (formData['id']) {
+        url = `/residents/${formData['id']}/save`;
+    }
+
+    $.ajax({
+        url: url,
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(formData),
+        success: function(data) {
+            window.location.reload();
+        },
+        error: function(xhr) {
+            alert('错误: ' + xhr.responseJSON.error);
+        }
+    });
+});
+
+// 处理删除村民信息
+$('#deleteButton').on('click', function() {
+    const id = $('[name="id"]').val();
+    if (!id) {
+        alert('错误: 无法确定要删除的村民信息');
+        return;
+    }
+
+    if (confirm('确定要删除这条村民信息吗？')) {
+        $.ajax({
+            url: `/residents/${id}`,
+            method: 'DELETE',
+            success: function(data) {
+                window.location.reload();
+            },
+            error: function(xhr) {
+                alert('错误: ' + xhr.responseJSON.error);
+            }
+        });
+    }
+});
+
+// 添加人员按钮
+$('#addMemberButton').on('click', function() {
+    // 清空表单并显示
+    $('#residentForm')[0].reset();
+    $('#residentForm [name="id"]').val(''); // 清除隐藏的ID字段
+    $('#householdMembers').empty();
+    $('#residentDetail').removeClass('d-none');
+});
+
+// 计算截止提名日周岁
+$('input[name="nomination_date"]').change(function() {
+    const nominationDate = new Date($(this).val());
+    const birthDate = new Date($('input[name="birth_date"]').val());
+    let age = nominationDate.getFullYear() - birthDate.getFullYear();
+    const m = nominationDate.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && nominationDate.getDate() < birthDate.getDate())) {
+        age--;
+    }
+    $('input[name="age_at_nomination"]').val(age);
+});
+
+$('#createButton').on('click', function() {
+    $('#residentDetail').removeClass('d-none');
+    $('#residentForm')[0].reset();
+    $('[name="id"]').val('');
+    $('#householdMembers').empty();
+});
+
+// 当户号变动时，判断是否为已有户号，若是则自动填充户主信息并禁用编辑
+$('[name="household_number"]').on('change', function() {
+    const hNumber = $(this).val().trim();
+    // 简单示例可通过 Ajax 请求到 /residents/household_head_info?h=xxx 获取已有数据
+    $.ajax({
+        url: `/residents/household_head_info?h=${hNumber}`,
+        method: 'GET',
+        success: function(data) {
+            if (data.exists) {
+                // 自动填充并锁定
+                $('[name="household_head_name"]').val(data.head_name).prop('readonly', true);
+                $('[name="household_address_group"]').val(data.address_group).prop('readonly', true);
+            } else {
+                // 新户号可自由编辑
+                $('[name="household_head_name"]').val('').prop('readonly', false);
+                $('[name="household_address_group"]').val('').prop('readonly', false);
+            }
+        },
+        error: function() {
+            // 出错则默认为新户号
+            $('[name="household_head_name"]').val('').prop('readonly', false);
+            $('[name="household_address_group"]').val('').prop('readonly', false);
+        }
+    });
+});
+
+// 添加导入相关的JavaScript代码
+$('#importForm').on('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    
+    $.ajax({
+        url: '/residents/import',
+        method: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+            if (response.success) {
+                alert(response.message);
+                if (response.errors) {
+                    console.log('导入错误:', response.errors);
+                    alert('部分记录导入失败，请查看控制台了解详情');
+                }
+                window.location.reload();
+            }
+        },
+        error: function(xhr) {
+            alert('导入失败: ' + (xhr.responseJSON?.error || '未知错误'));
+        }
+    });
+});
+</script>
+{% endblock %}

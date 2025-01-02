@@ -1,0 +1,220 @@
+{% extends "layout.html" %}
+
+{% block title %}大学生补贴管理{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">大学生补贴信息</h5>
+            
+            <!-- 搜索表单 -->
+            <form id="searchForm" class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <label class="form-label">搜索类型</label>
+                    <select class="form-select" name="search_type">
+                        <option value="name">姓名</option>
+                        <option value="id_card">身份证号</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">搜索内容</label>
+                    <input type="text" class="form-control" name="query" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary d-block">查询</button>
+                </div>
+            </form>
+
+            <!-- 在表单前添加信息展示区域 -->
+            <div id="villagerBasicInfo"></div>
+            <div id="currentSubsidy"></div>
+            <div id="subsidyHistory"></div>
+
+            <!-- 补贴信息表单 -->
+            <form id="subsidyForm" class="row g-3 d-none">
+                <input type="hidden" name="villager_id">
+                
+                <div class="col-md-4">
+                    <label class="form-label">姓名</label>
+                    <input type="text" class="form-control" name="name" readonly>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">身份证号</label>
+                    <input type="text" class="form-control" name="id_card" readonly>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">学校名称</label>
+                    <input type="text" class="form-control" name="school_name" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">补贴金额（每年）</label>
+                    <input type="number" class="form-control" name="amount" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">发放日期</label>
+                    <input type="date" class="form-control" name="issue_date" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">开始年份</label>
+                    <input type="date" class="form-control" name="start_year" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">结束年份</label>
+                    <input type="date" class="form-control" name="end_year" required>
+                </div>
+                
+                <div class="col-12 text-end">
+                    <button type="submit" class="btn btn-success">发放</button>
+                    <button type="button" class="btn btn-secondary" onclick="clearForm()">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // 搜索村民
+    $('#searchForm').on('submit', function(e) {
+        e.preventDefault();
+        $.ajax({
+            url: '/education/university/search',
+            data: $(this).serialize(),
+            success: function(data) {
+                if (data.villagers.length === 1) {
+                    const villager = data.villagers[0];
+                    fillVillagerInfo(villager);
+                } else if (data.villagers.length > 1) {
+                    // 显示多个结果供选择
+                    showMultipleResults(data.villagers);
+                } else {
+                    alert('未找到符合条件的村民');
+                }
+            },
+            error: function(xhr) {
+                alert(xhr.responseJSON?.error || '查询失败');
+            }
+        });
+    });
+
+    // 保存补贴信息
+    $('#subsidyForm').on('submit', function(e) {
+        e.preventDefault();
+        const formData = {
+            villager_id: $('[name="villager_id"]').val(),
+            school_name: $('[name="school_name"]').val(),
+            amount: $('[name="amount"]').val(),
+            issue_date: $('[name="issue_date"]').val(),
+            start_year: $('[name="start_year"]').val(),
+            end_year: $('[name="end_year"]').val(),
+        };
+
+        $.ajax({
+            url: '/education/university/save',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(formData),
+            success: function(data) {
+                if (data.success) {
+                    alert(`保存成功，${data.message}，实际发放金额：${data.amount}`);
+                    clearForm();
+                    $('#searchForm').trigger('submit');  // 刷新显示
+                }
+            },
+            error: function(xhr) {
+                alert(xhr.responseJSON?.error || '保存失败');
+            }
+        });
+    });
+
+    function fillVillagerInfo(villager) {
+        $('[name="villager_id"]').val(villager.id);
+        $('[name="name"]').val(villager.name);
+        $('[name="id_card"]').val(villager.id_card);
+        
+        // 显示基本信息
+        $('#villagerBasicInfo').html(`
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <strong>姓名：</strong>${villager.name}
+                </div>
+                <div class="col-md-3">
+                    <strong>身份证：</strong>${villager.id_card}
+                </div>
+                <div class="col-md-3">
+                    <strong>工区：</strong>${villager.area}
+                </div>
+                <div class="col-md-3">
+                    <strong>银行卡号：</strong>${villager.bank_account}
+                </div>
+            </div>
+        `);
+
+        // 显示当前补贴信息
+        if (villager.current_subsidy) {
+            const subsidy = villager.current_subsidy;
+            $('#currentSubsidy').html(`
+                <div class="alert alert-info">
+                    <h6>当前补贴信息</h6>
+                    <p>学校：${subsidy.school_name}</p>
+                    <p>补贴金额：${subsidy.amount} (${subsidy.is_half_year ? '半年补贴' : '全年补贴'})</p>
+                    <p>开始时间：${subsidy.start_year}</p>
+                    <p>结束时间：${subsidy.end_year}</p>
+                    <p>发放日期：${subsidy.issue_date || '未发放'}</p>
+                </div>
+            `);
+        } else {
+            $('#currentSubsidy').empty();
+        }
+
+        // 显示补贴历史
+        if (villager.subsidy_history && villager.subsidy_history.length > 0) {
+            const historyHtml = villager.subsidy_history.map(subsidy => `
+                <tr>
+                    <td>${subsidy.school_name}</td>
+                    <td>${subsidy.amount}</td>
+                    <td>${subsidy.start_year}</td>
+                    <td>${subsidy.end_year}</td>
+                    <td>${subsidy.issue_date || '未发放'}</td>
+                </tr>
+            `).join('');
+            
+            $('#subsidyHistory').html(`
+                <h6>补贴历史</h6>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>学校</th>
+                            <th>金额</th>
+                            <th>开始时间</th>
+                            <th>结束时间</th>
+                            <th>发放日期</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${historyHtml}
+                    </tbody>
+                </table>
+            `);
+        } else {
+            $('#subsidyHistory').empty();
+        }
+
+        // 根据是否有资格显示表单
+        if (villager.university_welfare_eligible) {
+            $('#subsidyForm').removeClass('d-none');
+        } else {
+            $('#subsidyForm').addClass('d-none');
+            alert('该村民无大学生补贴资格');
+        }
+    }
+
+    function clearForm() {
+        $('#subsidyForm')[0].reset();
+        $('[name="villager_id"]').val('');
+    }
+</script>
+{% endblock %}

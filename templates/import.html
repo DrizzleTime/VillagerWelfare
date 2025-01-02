@@ -1,0 +1,182 @@
+{% extends "layout.html" %}
+
+{% block title %}数据导入{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">数据导入</h2>
+    <div class="card">
+        <div class="card-body">
+            <form id="importForm" enctype="multipart/form-data">
+                <div class="mb-3">
+                    <label for="file" class="form-label">选择Excel文件</label>
+                    <input type="file" class="form-control" id="file" name="file" accept=".xlsx">
+                    <div class="form-text">支持.xlsx格式的Excel文件</div>
+                </div>
+                <div class="mb-3">
+                    <button type="submit" class="btn btn-primary">上传并检查</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 检查结果对话框 -->
+    <div class="modal fade" id="checkResultModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">数据检查结果</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="checkSummary" class="mb-3">
+                        <p>总记录数: <span id="totalRecords">0</span></p>
+                        <p>新增记录: <span id="newRecords">0</span></p>
+                        <p>更新记录: <span id="updateRecords">0</span></p>
+                    </div>
+                    <div id="existingRecords" class="mb-3">
+                        <h6>已存在的记录：</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>姓名</th>
+                                        <th>身份证号</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="existingRecordsBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="confirmImport">确认导入</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导入结果显示 -->
+    <div id="importResult" class="mt-4 d-none">
+        <div class="alert" role="alert">
+            <h4 class="alert-heading" id="resultTitle"></h4>
+            <p id="resultMessage"></p>
+            <hr>
+            <div id="errorDetails" class="d-none">
+                <p class="mb-0">错误详情：</p>
+                <ul id="errorList"></ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    let formData = null;
+
+    $('#importForm').on('submit', function(e) {
+        e.preventDefault();
+        formData = new FormData(this);
+        checkImportData(formData);
+    });
+
+    function checkImportData(data) {
+        $.ajax({
+            url: '/import/check',
+            method: 'POST',
+            data: data,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                showCheckResult(response);
+            },
+            error: function(xhr) {
+                showError(xhr.responseJSON?.error || '检查数据时发生错误');
+            }
+        });
+    }
+
+    function showCheckResult(result) {
+        $('#totalRecords').text(result.total);
+        $('#newRecords').text(result.new);
+        $('#updateRecords').text(result.update);
+
+        const tbody = $('#existingRecordsBody');
+        tbody.empty();
+        
+        result.existing_records.forEach(record => {
+            tbody.append(`
+                <tr>
+                    <td>${record.name}</td>
+                    <td>${record.id_card}</td>
+                    <td>${record.update_time}</td>
+                </tr>
+            `);
+        });
+
+        new bootstrap.Modal('#checkResultModal').show();
+    }
+
+    $('#confirmImport').on('click', function() {
+        if (!formData) return;
+        
+        $.ajax({
+            url: '/import/upload',
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                $('#checkResultModal').modal('hide');
+                showImportResult(response);
+            },
+            error: function(xhr) {
+                $('#checkResultModal').modal('hide');
+                showError(xhr.responseJSON?.error || '导入过程发生错误');
+            }
+        });
+    });
+
+    function showImportResult(response) {
+        const resultDiv = $('#importResult');
+        const alert = resultDiv.find('.alert');
+        
+        $('#resultTitle').text(response.success ? '导入成功' : '导入失败');
+        $('#resultMessage').text(response.message);
+        
+        alert.removeClass('alert-success alert-danger')
+             .addClass(response.success ? 'alert-success' : 'alert-danger');
+        
+        const errorDetails = $('#errorDetails');
+        const errorList = $('#errorList');
+        
+        if (response.errors && response.errors.length > 0) {
+            errorList.empty();
+            response.errors.forEach(function(error) {
+                errorList.append(`<li>${error.name} (${error.id_card}): ${error.error}</li>`);
+            });
+            errorDetails.removeClass('d-none');
+        } else {
+            errorDetails.addClass('d-none');
+        }
+        
+        resultDiv.removeClass('d-none');
+    }
+
+    function showError(message) {
+        $('#resultTitle').text('错误');
+        $('#resultMessage').text(message);
+        $('#errorDetails').addClass('d-none');
+        $('#importResult')
+            .removeClass('d-none')
+            .find('.alert')
+            .removeClass('alert-success')
+            .addClass('alert-danger');
+    }
+});
+</script>
+{% endblock %}

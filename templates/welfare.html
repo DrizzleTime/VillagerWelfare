@@ -1,0 +1,506 @@
+{% extends "layout.html" %}
+
+{% block title %}福利人口{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 搜索区 -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <form id="searchForm" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">搜索类型</label>
+                    <select class="form-select" name="search_type">
+                        <option value="name">姓名</option>
+                        <option value="id_card">身份证号</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">搜索内容</label>
+                    <input type="text" class="form-control" name="query" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">年份</label>
+                    <select class="form-select" name="year">
+                        {% for y in range(2020, 2031) %}
+                        <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary">查询</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 多结果选择区 -->
+    <div id="multipleResults" class="card mb-3 d-none">
+        <div class="card-body">
+            <h5>请选择要查看的村民</h5>
+            <div id="resultsList"></div>
+        </div>
+    </div>
+
+    <!-- 福利详情区 -->
+    <div id="welfareDetail" class="card d-none">
+        <div class="card-body">
+            <form id="welfareForm" class="row g-3">
+                <input type="hidden" name="villager_id">
+                
+                <!-- 基本身份信息 -->
+                <div class="col-md-6">
+                    <label class="form-label">姓名</label>
+                    <input type="text" class="form-control" name="name" readonly>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">身份证号</label>
+                    <input type="text" class="form-control" name="id_card" readonly>
+                </div>
+
+                <!-- 户籍信息 -->
+                <div class="col-md-6">
+                    <label class="form-label">户号</label>
+                    <input type="text" class="form-control" name="household_number" readonly>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">户主姓名</label>
+                    <input type="text" class="form-control" name="household_head_name" readonly>
+                </div>
+
+                <!-- 银行卡信息 -->
+                <div class="col-md-4">
+                    <label class="form-label">本人银行卡号</label>
+                    <input type="text" class="form-control" name="bank_account" readonly>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">户主银行卡号</label>
+                    <input type="text" class="form-control" name="household_head_bank_account" readonly>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">福利发放银行卡号</label>
+                    <input type="text" class="form-control" name="issued_bank_account" readonly>
+                </div>
+
+                <!-- 基本福利 -->
+                <div class="col-12 mt-4">
+                    <h5>基本福利</h5>
+                    <div class="row">
+                        <div class="col-md-2 form-check">
+                            <input type="checkbox" class="form-check-input" name="basic_welfare_eligible">
+                            <label class="form-check-label">是否享有</label>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">基础金额</label>
+                            <input type="number" class="form-control" name="basic_welfare_base" readonly>
+                        </div>
+  
+                        <div class="col-md-4">
+                            <label class="form-label">发放日期</label>
+                            <input type="date" class="form-control" name="basic_welfare_date">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 福利资格 -->
+                <div class="col-12 mt-4">
+                    <h5>福利资格</h5>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" name="basic_welfare_eligible" disabled>
+                                <label class="form-check-label">基础福利资格</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" name="elderly_welfare_eligible" disabled>
+                                <label class="form-check-label">养老福利资格</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" name="university_welfare_eligible" disabled>
+                                <label class="form-check-label">大学生补贴资格</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" name="high_school_welfare_eligible" disabled>
+                                <label class="form-check-label">高中生补贴资格</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 养老金配置 -->
+                <div class="col-12 mt-4">
+                    <h5>养老金配置</h5>
+                    <div class="row" id="elderlyWelfareContainer">
+                        <!-- 相关养老金阶段将动态添加到这里 -->
+                    </div>
+                </div>
+
+                <!-- 在养老金配置区域后添加教育补贴信息区域 -->
+                <div class="col-12 mt-4">
+                    <h5>教育补贴</h5>
+                    <!-- 大学生补贴信息 -->
+                    <div id="universitySubsidy" class="mb-3">
+                        <h6>大学生补贴信息</h6>
+                        <div id="currentUniversitySubsidy"></div>
+                        <div id="universitySubsidyHistory" class="mt-2"></div>
+                    </div>
+
+                    <!-- 高中生补贴信息 -->
+                    <div id="highSchoolSubsidy" class="mb-3">
+                        <h6>高中生补贴信息</h6>
+                        <div id="currentHighSchoolSubsidy"></div>
+                        <div id="highSchoolSubsidyHistory" class="mt-2"></div>
+                    </div>
+                </div>
+
+                <!-- 在教育补贴信息区域中添加历史记录表格 -->
+                <div class="col-12 mt-4">
+                    <h5>教育补贴历史</h5>
+                    
+                    <!-- 大学生补贴历史表格 -->
+                    <div id="universitySubsidyHistory" class="mb-4">
+                        <h6>大学生补贴历史记录</h6>
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>学校名称</th>
+                                        <th>补贴金额</th>
+                                        <th>入学时间</th>
+                                        <th>毕业时间</th>
+                                        <th>发放时间</th>
+                                        <th>状态</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="universityHistoryTableBody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 高中生补贴历史表格 -->
+                    <div id="highSchoolSubsidyHistory" class="mb-4">
+                        <h6>高中生补贴历史记录</h6>
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>学校名称</th>
+                                        <th>补贴金额</th>
+                                        <th>入学时间</th>
+                                        <th>发票号码</th>
+                                        <th>发票日期</th>
+                                        <th>报销时间</th>
+                                        <th>状态</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="highSchoolHistoryTableBody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 保存和取消按钮 -->
+                <div class="col-md-12 text-end mt-3">
+                    <button type="submit" class="btn btn-success">保存</button>
+                    <button type="button" id="cancelWelfareButton" class="btn btn-secondary">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // 修复搜索请求
+    $('#searchForm').on('submit', function(e) {
+        e.preventDefault();
+        const formData = {
+            search_type: $(this).find('[name="search_type"]').val(),
+            query: $(this).find('[name="query"]').val(),
+            year: $(this).find('[name="year"]').val()
+        };
+
+        $.ajax({
+            url: '/welfare/search',
+            method: 'GET',
+            data: formData,
+            success: function(data) {
+                if (data.multiple) {
+                    // 显示多个结果
+                    $('#multipleResults').removeClass('d-none');
+                    $('#resultsList').empty();
+                    data.results.forEach(function(resident) {
+                        $('#resultsList').append(`
+                            <li class="list-group-item list-group-item-action" data-id="${resident.id}">
+                                ${resident.name} - ${resident.id_card} - ${resident.area}
+                                ${resident.household_number ? `- 户号: ${resident.household_number}` : ''}
+                            </li>
+                        `);
+                    });
+                    $('#welfareDetail').addClass('d-none');
+                } else {
+                    // 显示单个结果
+                    $('#multipleResults').addClass('d-none');
+                    displayWelfare(data.welfare);
+                }
+            },
+            error: function(xhr) {
+                alert(xhr.responseJSON?.error || '查询失败，请稍后重试');
+            }
+        });
+    });
+
+    // 选择特定村民
+    $(document).on('click', '#resultsList li', function() {
+        const formData = {
+            villager_id: $(this).data('id'),
+            year: $('[name="year"]').val()
+        };
+
+        // 构建查询字符串
+        const params = new URLSearchParams(formData).toString();
+
+        $.ajax({
+            url: '/welfare/search?' + params,  // 修改为使用查询字符串
+            method: 'GET',
+            success: function(data) {
+                $('#multipleResults').addClass('d-none');
+                displayWelfare(data.welfare);
+            },
+            error: function(xhr) {
+                alert(xhr.responseJSON?.error || '获取福利信息失败');
+            }
+        });
+    });
+
+    // 显示福利详情
+    function displayWelfare(welfare) {
+        $('#welfareDetail').removeClass('d-none');
+        $('#welfareForm')[0].reset();
+
+        // 填充所有基本信息字段
+        const basicFields = [
+            'villager_id', 'name', 'id_card', 
+            'household_number', 'household_head_name',
+            'bank_account', 'household_head_bank_account', 'issued_bank_account'
+        ];
+
+        basicFields.forEach(field => {
+            $(`[name="${field}"]`).val(welfare[field]);
+        });
+
+        // 基本福利
+        const basic = welfare.basic_welfare;
+        if (basic) {
+            $('[name="basic_welfare_eligible"]').prop('checked', basic.eligible);
+            $('[name="basic_welfare_base"]').val(basic.base_amount);
+            $('[name="basic_welfare_amount"]').val(basic.amount);
+            $('[name="basic_welfare_date"]').val(basic.issue_date);
+        }
+
+        // 高中学费减免
+        const highSchool = welfare.welfare_records?.high_school;
+        if (highSchool) {
+            $('[name="high_school_waiver"]').prop('checked', true);
+            $('[name="high_school_amount"]').val(highSchool.amount);
+            $('[name="high_school_start_date"]').val(highSchool.school_start_date);
+            $('[name="high_school_end_date"]').val(highSchool.school_end_date);
+        } else {
+            $('[name="high_school_waiver"]').prop('checked', false);
+            $('[name="high_school_amount"]').val('');
+            $('[name="high_school_start_date"]').val('');
+            $('[name="high_school_end_date"]').val('');
+        }
+
+        // 养老金配置
+        const elderlyWelfare = welfare.elderly_welfare;
+        const elderlyContainer = $('#elderlyWelfareContainer');
+        elderlyContainer.empty();
+        
+        if (elderlyWelfare.eligible) {
+            const currentAge = elderlyWelfare.current_age;
+            
+            // 显示养老金总金额和发放日期
+            elderlyContainer.append(`
+                <div class="col-md-12">
+                    <h6>当前年龄: ${currentAge}岁</h6>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">养老金金额</label>
+                    <input type="number" class="form-control" name="elderly_welfare_amount" value="${elderlyWelfare.amount}" readonly>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">养老金发放日期</label>
+                    <input type="date" class="form-control" name="elderly_welfare_issue_date" value="${elderlyWelfare.issue_date}" readonly>
+                </div>
+            `);
+
+            // 根据年龄段显示对应阶段
+            let stageText = '';
+            if (currentAge >= 70 && currentAge < 80) {
+                stageText = '第一阶段 (70-79岁)';
+            } else if (currentAge >= 80 && currentAge < 90) {
+                stageText = '第二阶段 (80-89岁)';
+            } else if (currentAge >= 90 && currentAge < 100) {
+                stageText = '第三阶段 (90-99岁)';
+            } else if (currentAge >= 100) {
+                stageText = '第四阶段 (≥100岁)';
+            }
+
+            elderlyContainer.append(`
+                <div class="col-md-12 mt-3">
+                    <h6>当前养老金阶段: ${stageText}</h6>
+                </div>
+            `);
+        } else {
+            // 如果不符合养老金条件，隐藏整个养老金配置区域
+            elderlyContainer.closest('.col-12').hide();
+        }
+
+        // 显示大学生补贴信息
+        const universitySubsidies = welfare.welfare_records?.university;
+        if (universitySubsidies) {
+            $('#currentUniversitySubsidy').html(`
+                <div class="alert alert-info">
+                    <p>学校：${universitySubsidies.school_name}</p>
+                    <p>补贴金额：${universitySubsidies.amount}</p>
+                    <p>开始日期：${universitySubsidies.school_start_date || ''}</p>
+                    <p>结束日期：${universitySubsidies.school_end_date || ''}</p>
+                    <p>发放日期：${universitySubsidies.issue_date || '未发放'}</p>
+                </div>
+            `);
+            $('#universitySubsidy').show();
+        } else {
+            $('#universitySubsidy').hide();
+        }
+
+        // 显示高中生补贴信息
+        const highSchoolSubsidies = welfare.welfare_records?.high_school;
+        if (highSchoolSubsidies) {
+            $('#currentHighSchoolSubsidy').html(`
+                <div class="alert alert-info">
+                    <p>学校：${highSchoolSubsidies.school_name}</p>
+                    <p>补贴金额：${highSchoolSubsidies.amount}</p>
+                    <p>入学日期：${highSchoolSubsidies.school_start_date || ''}</p>
+                    <p>发票号码：${highSchoolSubsidies.invoice_number || ''}</p>
+                    <p>报销状态：${highSchoolSubsidies.issue_date ? '已报销' : '未报销'}</p>
+                    <p>报销日期：${highSchoolSubsidies.issue_date || '未报销'}</p>
+                </div>
+            `);
+            $('#highSchoolSubsidy').show();
+        } else {
+            $('#highSchoolSubsidy').hide();
+        }
+
+        // 设置福利资格复选框
+        $('[name="basic_welfare_eligible"]').prop('checked', welfare.basic_welfare_eligible);
+        $('[name="elderly_welfare_eligible"]').prop('checked', welfare.elderly_welfare_eligible);
+        $('[name="university_welfare_eligible"]').prop('checked', welfare.university_welfare_eligible);
+        $('[name="high_school_welfare_eligible"]').prop('checked', welfare.high_school_welfare_eligible);
+
+        // 处理大学生补贴历史记录
+        const universityHistory = welfare.university_subsidies || [];
+        const universityTableBody = $('#universityHistoryTableBody');
+        universityTableBody.empty();
+        
+        if (universityHistory.length > 0) {
+            universityHistory.forEach(subsidy => {
+                universityTableBody.append(`
+                    <tr>
+                        <td>${subsidy.school_name}</td>
+                        <td>${subsidy.amount}</td>
+                        <td>${subsidy.start_year || ''}</td>
+                        <td>${subsidy.end_year || ''}</td>
+                        <td>${subsidy.issue_date || '未发放'}</td>
+                        <td>${subsidy.issue_date ? '已发放' : '未发放'}</td>
+                    </tr>
+                `);
+            });
+            $('#universitySubsidyHistory').show();
+        } else {
+            $('#universitySubsidyHistory').hide();
+        }
+
+        // 处理高中生补贴历史记录
+        const highSchoolHistory = welfare.high_school_subsidies || [];
+        const highSchoolTableBody = $('#highSchoolHistoryTableBody');
+        highSchoolTableBody.empty();
+        
+        if (highSchoolHistory.length > 0) {
+            highSchoolHistory.forEach(subsidy => {
+                highSchoolTableBody.append(`
+                    <tr>
+                        <td>${subsidy.school_name}</td>
+                        <td>${subsidy.amount}</td>
+                        <td>${subsidy.registration_date || ''}</td>
+                        <td>${subsidy.invoice_number}</td>
+                        <td>${subsidy.invoice_date}</td>
+                        <td>${subsidy.issue_date || '未报销'}</td>
+                        <td>${subsidy.issue_date ? '已报销' : '未报销'}</td>
+                    </tr>
+                `);
+            });
+            $('#highSchoolSubsidyHistory').show();
+        } else {
+            $('#highSchoolSubsidyHistory').hide();
+        }
+    }
+
+    // 保存福利信息
+    $('#welfareForm').on('submit', function(e) {
+        e.preventDefault();
+        const formData = {
+            villager_id: $('[name="villager_id"]').val(),
+            year: $('[name="year"]').val(),
+            basic_welfare_eligible: $('[name="basic_welfare_eligible"]').is(':checked'),
+            basic_welfare_amount: $('[name="basic_welfare_amount"]').val(),
+            basic_welfare_date: $('[name="basic_welfare_date"]').val(),
+            high_school_waiver: $('[name="high_school_waiver"]').is(':checked'),
+            high_school_amount: $('[name="high_school_amount"]').val(),
+            high_school_start_date: $('[name="high_school_start_date"]').val(),
+            high_school_end_date: $('[name="high_school_end_date"]').val(),
+            // 4个养老金阶段的数据
+            elderly_welfare_stage1_amount: $('[name="elderly_welfare_stage1_amount"]').val(),
+            elderly_welfare_stage2_amount: $('[name="elderly_welfare_stage2_amount"]').val(),
+            elderly_welfare_stage3_amount: $('[name="elderly_welfare_stage3_amount"]').val(),
+            elderly_welfare_stage4_amount: $('[name="elderly_welfare_stage4_amount"]').val(),
+            elderly_welfare_issue_date: $('[name="elderly_welfare_issue_date"]').val(),
+        };
+
+        $.ajax({
+            url: '/welfare/save',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(formData),
+            success: function(data) {
+                if (data.success) {
+                    alert('保存成功');
+                    // 刷新当前村民的福利信息
+                    $('#searchForm').trigger('submit');
+                } else {
+                    alert('保存失败: ' + (data.error || '未知错误'));
+                }
+            },
+            error: function(xhr) {
+                alert(xhr.responseJSON?.error || '保存失败，请稍后重试');
+            }
+        });
+    });
+
+    // 取消按钮
+    $('#cancelWelfareButton').on('click', function() {
+        $('#welfareDetail').addClass('d-none');
+        $('#multipleResults').addClass('d-none');
+    });
+</script>
+{% endblock %}

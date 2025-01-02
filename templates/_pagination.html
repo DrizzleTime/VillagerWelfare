@@ -1,0 +1,15 @@
+{% if paginator and paginator.pages > 1 %}
+<nav>
+    <ul class="pagination justify-content-center">
+        {% for page in paginator.iter_pages() %}
+            {% if page %}
+                <li class="page-item {% if page == paginator.page %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for(request.endpoint, page=page) }}">{{ page }}</a>
+                </li>
+            {% else %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+            {% endif %}
+        {% endfor %}
+    </ul>
+</nav>
+{% endif %}

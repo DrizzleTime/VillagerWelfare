@@ -1,0 +1,150 @@
+{% extends "layout.html" %}
+
+{% block title %}信息导出{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 按提名日期和年龄导出 -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5 class="card-title mb-0">按提名日期和年龄导出</h5>
+        </div>
+        <div class="card-body">
+            <form id="ageExportForm" class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">提名日期</label>
+                    <input type="date" class="form-control" name="nomination_date" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">最小年龄（周岁）</label>
+                    <input type="number" class="form-control" name="min_age" required min="0">
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary">导出符合条件的人员信息</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 修改本年度人员变动导出部分 -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5 class="card-title mb-0">人员变动记录</h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-12 mb-3">
+                    <label class="form-label">选择年份</label>
+                    <input type="number" class="form-control" id="yearSelect" value="{{ current_year }}" min="1900" max="2100">
+                </div>
+                <div class="col-md-3">
+                    <button onclick="exportDataWithYear('deceased')" class="btn btn-primary w-100">导出死亡人员</button>
+                </div>
+                <div class="col-md-3">
+                    <button onclick="exportDataWithYear('newborn')" class="btn btn-primary w-100">导出出生人员</button>
+                </div>
+                <div class="col-md-3">
+                    <button onclick="exportDataWithYear('moved_out')" class="btn btn-primary w-100">导出迁出人员</button>
+                </div>
+                <div class="col-md-3">
+                    <button onclick="exportDataWithYear('moved_in')" class="btn btn-primary w-100">导出迁入人员</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增福利导出选项 -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5 class="card-title mb-0">福利导出</h5>
+        </div>
+        <div class="card-body">
+            <form action="{{ url_for('export.welfare_export') }}" method="post">
+                <div class="mb-3">
+                    <label for="export_type" class="form-label">选择导出类型：</label>
+                    <select name="export_type" id="export_type" class="form-select">
+                        <option value="all">全部</option>
+
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="filter_by" class="form-label">过滤方式：</label>
+                    <select name="filter_by" id="filter_by" class="form-select">
+                        <option value="individual">按个人</option>
+                        <option value="bank_account">按银行卡</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">导出</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 导出进度提示 -->
+    <div id="exportProgress" class="alert alert-info d-none">
+        <div class="spinner-border spinner-border-sm me-2" role="status">
+            <span class="visually-hidden">导出中...</span>
+        </div>
+        <span>正在生成导出文件，请稍候...</span>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 按年龄和提名日期导出
+$('#ageExportForm').on('submit', function(e) {
+    e.preventDefault();
+    const formData = {
+        nomination_date: $('[name="nomination_date"]').val(),
+        min_age: $('[name="min_age"]').val()
+    };
+    
+    showExportProgress();
+    const queryString = new URLSearchParams(formData).toString();
+    downloadFile('/export/by_age?' + queryString);
+});
+
+// 修改导出函数，添加年份参数
+function exportDataWithYear(type) {
+    const year = document.getElementById('yearSelect').value;
+    showExportProgress();
+    downloadFile(`/export/${type}?year=${year}`);
+}
+
+// 导出通用函数
+function exportData(type) {
+    showExportProgress();
+    downloadFile('/export/' + type);
+}
+
+// 文件下载函数
+function downloadFile(url) {
+    fetch(url)
+        .then(response => response.blob())
+        .then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = ''; // 让服务器决定文件名
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            hideExportProgress();
+        })
+        .catch(error => {
+            alert('导出失败: ' + error);
+            hideExportProgress();
+        });
+}
+
+// 显示导出进度
+function showExportProgress() {
+    $('#exportProgress').removeClass('d-none');
+}
+
+// 隐藏导出进度
+function hideExportProgress() {
+    $('#exportProgress').addClass('d-none');
+}
+</script>
+{% endblock %}

@@ -1,0 +1,231 @@
+{% extends "layout.html" %}
+
+{% block title %}高中学费报销管理{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">高中学费报销信息</h5>
+            
+            <!-- 搜索表单 -->
+            <form id="searchForm" class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <label class="form-label">搜索类型</label>
+                    <select class="form-select" name="search_type">
+                        <option value="name">姓名</option>
+                        <option value="id_card">身份证号</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">搜索内容</label>
+                    <input type="text" class="form-control" name="query" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary d-block">查询</button>
+                </div>
+            </form>
+
+            <!-- 基本信息展示区域 -->
+            <div id="villagerBasicInfo"></div>
+            <div id="currentReimbursement"></div>
+            <div id="reimbursementHistory"></div>
+
+            <!-- 报销信息表单 -->
+            <form id="reimbursementForm" class="row g-3 d-none">
+                <input type="hidden" name="villager_id">
+                
+                <div class="col-md-4">
+                    <label class="form-label">姓名</label>
+                    <input type="text" class="form-control" name="name" readonly>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">身份证号</label>
+                    <input type="text" class="form-control" name="id_card" readonly>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">学校名称</label>
+                    <input type="text" class="form-control" name="school_name" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">报销金额</label>
+                    <input type="number" class="form-control" name="amount" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">发票号码</label>
+                    <input type="text" class="form-control" name="invoice_number" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">发票日期</label>
+                    <input type="date" class="form-control" name="invoice_date" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">入学日期</label>
+                    <input type="date" class="form-control" name="registration_date" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">报销日期</label>
+                    <input type="date" class="form-control" name="issue_date">
+                </div>
+                
+                <div class="col-12 text-end">
+                    <button type="submit" class="btn btn-success">提交报销</button>
+                    <button type="button" class="btn btn-secondary" onclick="clearForm()">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // 搜索村民
+    $('#searchForm').on('submit', function(e) {
+        e.preventDefault();
+        $.ajax({
+            url: '/education/highschool/search',
+            data: $(this).serialize(),
+            success: function(data) {
+                if (data.villagers.length === 1) {
+                    const villager = data.villagers[0];
+                    fillVillagerInfo(villager);
+                } else if (data.villagers.length > 1) {
+                    showMultipleResults(data.villagers);
+                } else {
+                    alert('未找到符合条件的村民');
+                }
+            },
+            error: function(xhr) {
+                alert(xhr.responseJSON?.error || '查询失败');
+            }
+        });
+    });
+
+    function fillVillagerInfo(villager) {
+        // 填充基本表单字段
+        $('[name="villager_id"]').val(villager.id);
+        $('[name="name"]').val(villager.name);
+        $('[name="id_card"]').val(villager.id_card);
+        
+        // 显示基本信息
+        $('#villagerBasicInfo').html(`
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <strong>姓名：</strong>${villager.name}
+                </div>
+                <div class="col-md-3">
+                    <strong>身份证：</strong>${villager.id_card}
+                </div>
+                <div class="col-md-3">
+                    <strong>工区：</strong>${villager.area}
+                </div>
+                <div class="col-md-3">
+                    <strong>银行卡号：</strong>${villager.bank_account}
+                </div>
+            </div>
+        `);
+
+        // 显示当前报销信息
+        if (villager.current_reimbursement) {
+            const reimbursement = villager.current_reimbursement;
+            $('#currentReimbursement').html(`
+                <div class="alert alert-info">
+                    <h6>当前报销信息</h6>
+                    <p>学校：${reimbursement.school_name}</p>
+                    <p>金额：${reimbursement.amount}</p>
+                    <p>发票号码：${reimbursement.invoice_number}</p>
+                    <p>发票日期：${reimbursement.invoice_date}</p>
+                    <p>入学日期：${reimbursement.registration_date}</p>
+                    <p>报销日期：${reimbursement.issue_date || '未报销'}</p>
+                </div>
+            `);
+        } else {
+            $('#currentReimbursement').empty();
+        }
+
+        // 显示报销历史
+        if (villager.reimbursement_history && villager.reimbursement_history.length > 0) {
+            const historyHtml = villager.reimbursement_history.map(reimbursement => `
+                <tr>
+                    <td>${reimbursement.school_name}</td>
+                    <td>${reimbursement.amount}</td>
+                    <td>${reimbursement.invoice_number}</td>
+                    <td>${reimbursement.invoice_date}</td>
+                    <td>${reimbursement.registration_date}</td>
+                    <td>${reimbursement.issue_date || ''}</td>
+                </tr>
+            `).join('');
+            
+            $('#reimbursementHistory').html(`
+                <h6>报销历史</h6>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>学校</th>
+                            <th>金额</th>
+                            <th>发票号码</th>
+                            <th>发票日期</th>
+                            <th>入学日期</th>
+                            <th>报销日期</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${historyHtml}
+                    </tbody>
+                </table>
+            `);
+        } else {
+            $('#reimbursementHistory').empty();
+        }
+
+        // 根据是否有资格显示表单
+        if (villager.high_school_welfare_eligible) {
+            $('#reimbursementForm').removeClass('d-none');
+        } else {
+            $('#reimbursementForm').addClass('d-none');
+            alert('该村民无高中生补贴资格');
+        }
+    }
+
+    // 清除表单
+    function clearForm() {
+        $('#reimbursementForm')[0].reset();
+        $('[name="villager_id"]').val('');
+        $('#reimbursementForm').addClass('d-none');
+    }
+
+    // 提交报销
+    $('#reimbursementForm').on('submit', function(e) {
+        e.preventDefault();
+        const formData = {
+            villager_id: $('[name="villager_id"]').val(),
+            school_name: $('[name="school_name"]').val(),
+            amount: $('[name="amount"]').val(),
+            invoice_number: $('[name="invoice_number"]').val(),
+            invoice_date: $('[name="invoice_date"]').val(),
+            registration_date: $('[name="registration_date"]').val(),
+            issue_date: $('[name="issue_date"]').val(),
+        };
+
+        $.ajax({
+            url: '/education/highschool/save',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(formData),
+            success: function(data) {
+                if (data.success) {
+                    alert('报销申请提交成功');
+                    clearForm();
+                    // 刷新查询结果
+                    $('#searchForm').trigger('submit');
+                }
+            },
+            error: function(xhr) {
+                alert(xhr.responseJSON?.error || '保存失败');
+            }
+        });
+    });
+</script>
+{% endblock %}
