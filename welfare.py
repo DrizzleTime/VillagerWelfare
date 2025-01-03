@@ -383,9 +383,8 @@ def calculate_welfare_amounts(villager, year):
     
     if elderly_issue_date:
         # 计算发放日期时的年龄
-        age_at_issue = elderly_issue_date.year - villager.birth_date.year
-        if (elderly_issue_date.month, elderly_issue_date.day) < (villager.birth_date.month, villager.birth_date.day):
-            age_at_issue -= 1
+        age_at_issue = elderly_issue_date.year - villager.birth_date.year + 1
+
             
         # 根据发放日期时的年龄判断养老金阶段和金额
         if age_at_issue >= 70 and age_at_issue < 80:

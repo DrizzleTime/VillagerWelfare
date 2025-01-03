@@ -22,7 +22,8 @@ def export_by_age():
     try:
 
         # 获取参数并进行日期转换
-        nomination_date = datetime.strptime(request.args.get('nomination_date'), '%Y-%m-%d').date()
+        nomination_date = datetime.strptime(
+            request.args.get('nomination_date'), '%Y-%m-%d').date()
         min_age = int(request.args.get('min_age', 0))
 
         # 修改数据库中所有的数据的提名日为传入的提名日
@@ -283,7 +284,8 @@ def welfare_export():
             'need_config': True
         }), 404
 
-    filename = f"welfare_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    filename = f"welfare_export_{
+        datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
 
     villagers = Villager.query.all()
 
@@ -303,7 +305,7 @@ def welfare_export():
             continue
 
         # 基础福利
-        basic_welfare = calculate_basic_welfare(v)
+        basic_welfare = calculate_basic_welfare(v, year_input)
         basic_data.append({
             '公民身份证号码': v.id_card,
             '姓名': v.name,
@@ -316,7 +318,7 @@ def welfare_export():
         })
 
         # 养老金
-        elderly_welfare = calculate_elderly_welfare(v)
+        elderly_welfare = calculate_elderly_welfare(v, year_input)
         if elderly_welfare['eligible']:
             elderly_data.append({
                 '公民身份证号码': v.id_card,
@@ -357,7 +359,8 @@ def welfare_export():
             highschool_total += reimbursement.amount
 
         # 计算合计福利金额
-        total_welfare = basic_welfare['amount'] + elderly_welfare['amount'] + university_total + highschool_total
+        total_welfare = basic_welfare['amount'] + \
+            elderly_welfare['amount'] + university_total + highschool_total
 
         # 获取年龄
         age = v.calculate_age()
@@ -414,7 +417,8 @@ def welfare_export():
                 '高中报销总额': 'sum',
                 '合计福利金额': 'sum'
             }).reset_index()
-            bank_account_df = bank_account_df.rename(columns={'福利银行卡号': '银行卡号'})  # 重命名列名为"银行卡号"
+            bank_account_df = bank_account_df.rename(
+                columns={'福利银行卡号': '银行卡号'})  # 重命名列名为"银行卡号"
     # else:
     # main_df 已经是总表
 
@@ -428,13 +432,14 @@ def welfare_export():
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         if filter_by == 'bank_account' and not main_df.empty:
-            bank_account_df.to_excel(writer, sheet_name='按银行卡导出', index=False)  # 写入按银行卡导出
+            bank_account_df.to_excel(
+                writer, sheet_name='按银行卡导出', index=False)  # 写入按银行卡导出
         elif filter_by != 'bank_account' and not main_df.empty:
             # 重新排序列，确保银行卡号和福利银行卡号在合适的位置
             columns_order = [
-                '公民身份证号码', '户号', '姓名', '性别', '民族', '出生日期', 
-                '户籍地详细地址', '户籍地组', '与户主的关系', '电话', '工区', 
-                '银行卡号', '福利银行卡号', '在籍状态', '年龄', '基础福利金额', 
+                '公民身份证号码', '户号', '姓名', '性别', '民族', '出生日期',
+                '户籍地详细地址', '户籍地组', '与户主的关系', '电话', '工区',
+                '银行卡号', '福利银行卡号', '在籍状态', '年龄', '基础福利金额',
                 '基础福利备注', '养老金金额', '大学补贴总额', '高中报销总额', '合计福利金额'
             ]
             main_df = main_df[columns_order]
@@ -471,8 +476,8 @@ def export_villagers_to_excel(villagers, filename, **kwargs):
     pass
 
 
-def calculate_basic_welfare(villager):
-    config = WelfareConfig.query.filter_by(year=datetime.now().year).first()
+def calculate_basic_welfare(villager, year):
+    config = WelfareConfig.query.filter_by(year=year).first()
     if not config or not villager.welfare_eligible:
         return {'eligible': False, 'amount': 0, 'message': '不符合福利条件'}
 
@@ -517,16 +522,15 @@ def calculate_basic_welfare(villager):
     }
 
 
-def calculate_elderly_welfare(villager):
-    config = WelfareConfig.query.filter_by(year=datetime.now().year).first()
+def calculate_elderly_welfare(villager, year):
+    config = WelfareConfig.query.filter_by(year=year).first()
     if not config or not config.elderly_welfare_issue_date:
         return {'eligible': False, 'amount': 0, 'stage': None}
 
     # 计算发放日期时的年龄
     issue_date = config.elderly_welfare_issue_date
-    age_at_issue = issue_date.year - villager.birth_date.year
-    if (issue_date.month, issue_date.day) < (villager.birth_date.month, villager.birth_date.day):
-        age_at_issue -= 1
+    issue_date = config.elderly_welfare_issue_date
+    age_at_issue = (issue_date.year - villager.birth_date.year) + 1  # 修改为 +1，不再考虑月份日判断
 
     amount = 0
     stage = None
