@@ -453,7 +453,8 @@ def calculate_welfare_amounts(villager, year):
                 'bank_account': r.bank_account
             }
             for r in villager.high_school_reimbursements
-        ]
+        ],
+        'welfare_bank_account': villager.welfare_bank_account or (villager.household_head.head.bank_account if villager.household_head else '') or villager.bank_account or '0'
     }
 
 def save_welfare_records(villager_id, year, data):
@@ -679,4 +680,23 @@ def update_bank_account(record_id):
         db.session.rollback()
         flash(f'更新失败: {str(e)}', 'danger')
     return redirect(url_for('welfare.records'))
+
+@welfare_bp.route('/update_bank_account', methods=['POST'])
+@login_required
+def update_welfare_bank_account():
+    data = request.get_json()
+    villager_id = data.get('villager_id')
+    welfare_bank_account = data.get('welfare_bank_account')
+
+    if not villager_id:
+        return jsonify({'error': '缺少必要参数'}), 400
+
+    try:
+        villager = Villager.query.get_or_404(villager_id)
+        villager.welfare_bank_account = welfare_bank_account
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
 

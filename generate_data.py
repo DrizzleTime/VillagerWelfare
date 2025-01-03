@@ -1,8 +1,7 @@
-import os
+from datetime import datetime
+
 from app import app, db
 from models import User
-import argparse
-from datetime import datetime
 
 
 def create_user(username, password, role, area):

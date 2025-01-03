@@ -374,7 +374,8 @@ def welfare_export():
             '养老金金额': elderly_welfare['amount'],
             '大学补贴总额': university_total,
             '高中报销总额': highschool_total,
-            '合计福利金额': total_welfare
+            '合计福利金额': total_welfare,
+            '福利银行卡号': v.welfare_bank_account or (v.household_head.head.bank_account if v.household_head else '') or v.bank_account or '0'
         })
 
     # 转换为 DataFrame
@@ -383,8 +384,8 @@ def welfare_export():
     # 根据 filter_by 参数生成相应的 DataFrame
     if filter_by == 'bank_account':
         if not main_df.empty:
-            # 按银行卡号分组并汇总
-            bank_account_df = main_df.groupby('银行卡号').agg({
+            # 按福利银行卡号分组并汇总
+            bank_account_df = main_df.groupby('福利银行卡号').agg({
                 '公民身份证号码': 'first',
                 '户号': 'first',
                 '姓名': 'first',
@@ -404,6 +405,7 @@ def welfare_export():
                 '高中报销总额': 'sum',
                 '合计福利金额': 'sum'
             }).reset_index()
+            bank_account_df = bank_account_df.rename(columns={'福利银行卡号': '银行卡号'})  # 重命名列名为"银行卡号"
     # else:
     # main_df 已经是总表
 
@@ -419,6 +421,14 @@ def welfare_export():
         if filter_by == 'bank_account' and not main_df.empty:
             bank_account_df.to_excel(writer, sheet_name='按银行卡导出', index=False)  # 写入按银行卡导出
         elif filter_by != 'bank_account' and not main_df.empty:
+            # 重新排序列，确保银行卡号和福利银行卡号在合适的位置
+            columns_order = [
+                '公民身份证号码', '户号', '姓名', '性别', '民族', '出生日期', 
+                '户籍地详细地址', '户籍地组', '与户主的关系', '电话', '工区', 
+                '银行卡号', '福利银行卡号', '在籍状态', '年龄', '基础福利金额', 
+                '基础福利备注', '养老金金额', '大学补贴总额', '高中报销总额', '合计福利金额'
+            ]
+            main_df = main_df[columns_order]
             main_df.to_excel(writer, sheet_name='总表', index=False)  # 写入总表
 
         if not basic_df.empty:

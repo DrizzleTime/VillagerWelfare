@@ -95,10 +95,6 @@ def search_highschool():
     else:
         villager_query = villager_query.filter(Villager.id_card.like(f'%{query}%'))
 
-    if session.get('role') != '管理员':
-        user_area = User.query.get(session['user_id']).area
-        villager_query = villager_query.filter(Villager.area == user_area)
-        
     villagers = villager_query.all()
 
     return jsonify({
@@ -146,31 +142,29 @@ def save_university():
     data = request.json
     try:
         villager = Villager.query.get(data['villager_id'])
-        bank_account = villager.bank_account if not villager.household_head else villager.household_head.head.bank_account
-
-        # 移除自动减半逻辑
-        # start_year_date = datetime.strptime(data['start_year'], '%Y-%m-%d').date()
-        # end_year_date = datetime.strptime(data['end_year'], '%Y-%m-%d').date()
+        # 修改银行卡获取逻辑
+        bank_account = (
+            villager.welfare_bank_account or 
+            (villager.household_head.head.bank_account if villager.household_head else '') or 
+            villager.bank_account or 
+            '0'
+        )
         amount = float(data['amount'])
         
-        # if (start_year_date.year == current_year and start_year_date.month > 6) or \
-        #    (end_year_date.year == current_year and end_year_date.month <= 6):
-        #     amount = amount / 2
-
         subsidy = UniversitySubsidy(
             villager_id=data['villager_id'],
             school_name=data['school_name'],
-            amount=amount,  # 使用输入的金额
+            amount=amount,
             issue_date=datetime.strptime(data['issue_date'], '%Y-%m-%d').date(),
             start_year=datetime.strptime(data['start_year'], '%Y-%m-%d').date(),
             end_year=datetime.strptime(data['end_year'], '%Y-%m-%d').date(),
-            bank_account=bank_account
+            bank_account=bank_account  # 使用统一的银行卡获取逻辑
         )
         db.session.add(subsidy)
         db.session.commit()
         return jsonify({
             'success': True, 
-            'amount': amount,  # 返回输入的金额
+            'amount': amount,
             'message': '补贴已保存'
         })
     except Exception as e:
@@ -183,7 +177,13 @@ def save_highschool():
     data = request.json
     try:
         villager = Villager.query.get(data['villager_id'])
-        bank_account = villager.bank_account if not villager.household_head else villager.household_head.head.bank_account
+        # 修改银行卡获取逻辑
+        bank_account = (
+            villager.welfare_bank_account or 
+            (villager.household_head.head.bank_account if villager.household_head else '') or 
+            villager.bank_account or 
+            '0'
+        )
         
         reimbursement = HighSchoolReimbursement(
             villager_id=data['villager_id'],
@@ -194,7 +194,7 @@ def save_highschool():
             registration_date=datetime.strptime(data['registration_date'], '%Y-%m-%d').date(),
             issue_date=datetime.strptime(data['issue_date'], '%Y-%m-%d').date() if data.get('issue_date') else None,
             is_issued=data.get('is_issued', False),
-            bank_account=bank_account  # 添加银行账户
+            bank_account=bank_account  # 使用统一的银行卡获取逻辑
         )
         db.session.add(reimbursement)
         db.session.commit()
@@ -209,27 +209,23 @@ def add_university_subsidy():
     try:
         data = request.get_json()
         villager_id = data.get('villager_id')
-        school_name = data.get('school_name')
-        amount = float(data.get('amount', 0))
-        start_year = datetime.strptime(data.get('start_year'), '%Y-%m-%d')
-        end_year = datetime.strptime(data.get('end_year'), '%Y-%m-%d')
-
         villager = Villager.query.get(villager_id)
-        bank_account = villager.bank_account if not villager.household_head else villager.household_head.head.bank_account
+        # 修改银行卡获取逻辑
+        bank_account = (
+            villager.welfare_bank_account or 
+            (villager.household_head.head.bank_account if villager.household_head else '') or 
+            villager.bank_account or 
+            '0'
+        )
 
         subsidy = UniversitySubsidy(
             villager_id=villager_id,
-            school_name=school_name,
-            amount=amount,  # 存储输入的金额
-            start_year=start_year,
-            end_year=end_year,
-            bank_account=bank_account
+            school_name=data.get('school_name'),
+            amount=float(data.get('amount', 0)),
+            start_year=datetime.strptime(data.get('start_year'), '%Y-%m-%d'),
+            end_year=datetime.strptime(data.get('end_year'), '%Y-%m-%d'),
+            bank_account=bank_account  # 使用统一的银行卡获取逻辑
         )
-
-        # 移除自动减半逻辑
-        # current_year = datetime.now().year
-        # if subsidy.calculate_is_half_year(current_year):
-        #     subsidy.amount = amount / 2  # 直接存储半额
 
         db.session.add(subsidy)
         db.session.commit()
@@ -245,28 +241,28 @@ def add_highschool_reimbursement():
     try:
         data = request.get_json()
         villager_id = data.get('villager_id')
-        school_name = data.get('school_name')
-        amount = float(data.get('amount', 0))
-        invoice_number = data.get('invoice_number')
-        invoice_date = datetime.strptime(data.get('invoice_date'), '%Y-%m-%d')
-        registration_date = datetime.strptime(data.get('registration_date'), '%Y-%m-%d')
-
         villager = Villager.query.get(villager_id)
-        bank_account = villager.bank_account if not villager.household_head else villager.household_head.head.bank_account
+        # 修改银行卡获取逻辑
+        bank_account = (
+            villager.welfare_bank_account or 
+            (villager.household_head.head.bank_account if villager.household_head else '') or 
+            villager.bank_account or 
+            '0'
+        )
 
         reimbursement = HighSchoolReimbursement(
             villager_id=villager_id,
-            school_name=school_name,
-            amount=amount,  # 存储原始金额
-            invoice_number=invoice_number,
-            invoice_date=invoice_date,
-            registration_date=registration_date,
-            bank_account=bank_account  # 添加银行账户
+            school_name=data.get('school_name'),
+            amount=float(data.get('amount', 0)),
+            invoice_number=data.get('invoice_number'),
+            invoice_date=datetime.strptime(data.get('invoice_date'), '%Y-%m-%d'),
+            registration_date=datetime.strptime(data.get('registration_date'), '%Y-%m-%d'),
+            bank_account=bank_account  # 使用统一的银行卡获取逻辑
         )
 
         # 根据入学时间调整金额
-        if registration_date.month > 6:
-            reimbursement.amount = amount / 2  # 直接存储半额
+        if reimbursement.registration_date.month > 6:
+            reimbursement.amount = reimbursement.amount / 2
 
         db.session.add(reimbursement)
         db.session.commit()

@@ -1,11 +1,10 @@
 import random
-from flask import Blueprint, render_template, request, session, jsonify, flash  # 添加导入
-from models import Villager, User, db, HouseholdHead
 from datetime import datetime
-import pandas as pd
-from werkzeug.utils import secure_filename
-import os
 
+import pandas as pd
+from flask import Blueprint, render_template, request, jsonify, flash  # 添加导入
+
+from models import Villager, db, HouseholdHead
 from wraps import login_required, admin_required, area_required
 
 residents_bp = Blueprint('residents', __name__)
@@ -20,7 +19,7 @@ def residents():
     query = Villager.query
 
     residents = query.paginate(page=page, per_page=per_page, error_out=False)
-    
+
     # 获取所有户主用于下拉框
     household_heads = HouseholdHead.query.all()
     household_head_options = [
@@ -45,7 +44,6 @@ def search_residents():
     else:
         residents = Villager.query.filter(Villager.id_card.like(f'%{query}%'))
 
-
     results = residents.all()
 
     if not results:
@@ -66,7 +64,8 @@ def search_residents():
     resident = results[0]
     resident_data = resident.to_dict()
     resident_data['household_number'] = resident.household_head.household_number if resident.household_head else ''
-    resident_data['household_members'] = [m.to_dict_simple() for m in resident.household_head.members] if resident.household_head else []
+    resident_data['household_members'] = [m.to_dict_simple() for m in
+                                          resident.household_head.members] if resident.household_head else []
     # 确保福利资格字段被包含在返回数据中
     resident_data.update({
         'elderly_welfare_eligible': resident.elderly_welfare_eligible,
@@ -78,12 +77,12 @@ def search_residents():
         'resident': resident_data
     })
 
+
 @residents_bp.route('/<int:id>')
 @login_required
 @area_required
 def get_resident(id):
     resident = Villager.query.get_or_404(id)
-
 
     household_members = [m.to_dict_simple() for m in resident.household_head.members] if resident.household_head else []
 
@@ -98,7 +97,7 @@ def get_resident(id):
 @area_required
 def create_resident():
     data = request.get_json()
-    required_fields = ['name','id_card','gender','birth_date','bank_account','area']
+    required_fields = ['name', 'id_card', 'gender', 'birth_date', 'bank_account', 'area']
     for field in required_fields:
         if not data.get(field):
             return jsonify({'error': f'{field} 不能为空'}), 400
@@ -108,7 +107,7 @@ def create_resident():
 
     for key, value in data.items():
         if hasattr(resident, key) and key not in ['id']:
-            if key in ['birth_date','nomination_date','move_out_date','move_in_date','death_date']:
+            if key in ['birth_date', 'nomination_date', 'move_out_date', 'move_in_date', 'death_date']:
                 setattr(resident, key, datetime.strptime(value, '%Y-%m-%d').date() if value else None)
             else:
                 setattr(resident, key, value)
@@ -121,7 +120,7 @@ def create_resident():
 
     if not data.get('household_number'):
         resident.household_head = HouseholdHead(
-            household_number=f"HH{random.randint(1000,9999)}",
+            household_number=f"HH{random.randint(1000, 9999)}",
             head_id=resident.id,
             address_group='1组'
         )
@@ -131,7 +130,7 @@ def create_resident():
             hh = HouseholdHead(
                 household_number=data['household_number'],
                 head_id=resident.id,
-                address_group=data.get('household_address_group','1组')
+                address_group=data.get('household_address_group', '1组')
             )
             db.session.add(hh)
         resident.household_head = hh
@@ -152,7 +151,7 @@ def create_resident():
 def save_resident_by_id(id):
     data = request.get_json()
     resident = Villager.query.get_or_404(id)
-    required_fields = ['name','id_card','gender','birth_date','bank_account','area','household_number']
+    required_fields = ['name', 'id_card', 'gender', 'birth_date', 'bank_account', 'area', 'household_number']
     for field in required_fields:
         if not data.get(field):
             return jsonify({'error': f'{field} 不能为空'}), 400
@@ -173,13 +172,13 @@ def save_resident_by_id(id):
             address_group=address_group
         )
         db.session.add(hh)
-    
+
     # 关联户籍信息
     resident.household_head = hh
 
     for key, value in data.items():
         if hasattr(resident, key) and key not in ['id']:
-            if key in ['birth_date','nomination_date','move_out_date','move_in_date','death_date']:
+            if key in ['birth_date', 'nomination_date', 'move_out_date', 'move_in_date', 'death_date']:
                 setattr(resident, key, datetime.strptime(value, '%Y-%m-%d').date() if value else None)
             else:
                 setattr(resident, key, value)
@@ -231,7 +230,8 @@ def save_household_head():
     if household_head:
         household_head.head_id = head_id
     else:
-        household_head = HouseholdHead(household_number=household_number, head_id=head_id, address_group=data.get('address_group', '一区'))
+        household_head = HouseholdHead(household_number=household_number, head_id=head_id,
+                                       address_group=data.get('address_group', '一区'))
         db.session.add(household_head)
 
     try:
@@ -241,8 +241,9 @@ def save_household_head():
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
-
         return jsonify({'error': str(e)}), 500
+
+
 @residents_bp.route('/household_head_info', methods=['GET'])
 @login_required
 def household_head_info():
@@ -262,12 +263,13 @@ def household_head_info():
 
         return jsonify({'error': str(e)}), 500
 
+
 @residents_bp.route('/import', methods=['POST'])
 @login_required
 def import_residents():
     if 'file' not in request.files:
         return jsonify({'error': '未上传文件'}), 400
-        
+
     file = request.files['file']
     if not file or not file.filename.endswith('.xlsx'):
         return jsonify({'error': '请上传Excel文件'}), 400
@@ -279,14 +281,14 @@ def import_residents():
             '出生年月日', '提名日', '截止提名日周岁', '户籍地详址', '社区村居委会',
             '户籍地组', '与户主关系', '电话', '银行卡号', '工区', '是否在籍'
         ]
-        
+
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
             return jsonify({'error': f'缺少必要列: {", ".join(missing_columns)}'}), 400
 
         success_count = 0
         error_records = []
-        
+
         for _, row in df.iterrows():
             try:
                 # 检查或创建户主信息
@@ -295,10 +297,10 @@ def import_residents():
                     # 找到该户号下的户主（与户主关系为"户主"的记录）
                     household_data = df[df['户号'] == row['户号']]
                     head_data = household_data[household_data['与户主关系'] == '户主'].iloc[0]
-                    
+
                     # 创建户主的村民记录
                     head_resident = create_or_update_resident(head_data)
-                    
+
                     # 创建户主信息
                     household_head = HouseholdHead(
                         household_number=row['户号'],
@@ -310,9 +312,9 @@ def import_residents():
                 # 创建或更新村民信息
                 resident = create_or_update_resident(row)
                 resident.household_head = household_head
-                
+
                 success_count += 1
-                
+
             except Exception as e:
                 error_records.append({
                     'name': row['姓名'],
@@ -331,6 +333,7 @@ def import_residents():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': f'导入失败: {str(e)}'}), 500
+
 
 def create_or_update_resident(row):
     """创建或更新村民记录"""
@@ -357,6 +360,3 @@ def create_or_update_resident(row):
     resident.remarks = row.get('remarks', '')  # 添加备注字段处理
 
     return resident
-
-
-

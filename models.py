@@ -79,6 +79,7 @@ class Villager(db.Model):
     death_date = db.Column(db.Date)
     residency_status = db.Column(db.Boolean, default=True)
     remarks = db.Column(db.Text)  # 添加备注字段
+    welfare_bank_account = db.Column(db.String(20), nullable=True)  # 新增福利银行卡号字段
 
     # 创建和更新时间
     created_at = db.Column(db.DateTime, default=datetime.now())
@@ -94,6 +95,16 @@ class Villager(db.Model):
             print("test",age)
             return age
         return None
+
+    def get_welfare_bank_account(self):
+        """获取福利发放银行卡号"""
+        if self.welfare_bank_account:
+            return self.welfare_bank_account
+        if self.household_head and self.household_head.head:
+            return self.household_head.head.bank_account
+        if self.bank_account:
+            return self.bank_account
+        return '0'
 
     def to_dict(self):
         data = {
@@ -136,7 +147,8 @@ class Villager(db.Model):
                 'address_group': self.household_head.address_group
             } if self.household_head else None,
             'remarks': self.remarks,  # 添加到字典输出
-            'original_id_card': self.original_id_card
+            'original_id_card': self.original_id_card,
+            'welfare_bank_account': self.welfare_bank_account,
         }
         return data
 

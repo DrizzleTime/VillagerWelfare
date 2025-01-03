@@ -77,6 +77,33 @@
         </div>
     </div>
 </div>
+
+<!-- 在 content block 末尾添加模态框 -->
+<div class="modal fade" id="multipleResultsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">选择村民</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>姓名</th>
+                                <th>身份证号</th>
+                                <th>工区</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="multipleResultsBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -227,5 +254,34 @@
             }
         });
     });
+
+    // 在 scripts block 末尾添加这些函数
+    function showMultipleResults(villagers) {
+        const tbody = $('#multipleResultsBody');
+        tbody.empty();
+        
+        villagers.forEach(villager => {
+            tbody.append(`
+                <tr>
+                    <td>${villager.name}</td>
+                    <td>${villager.id_card}</td>
+                    <td>${villager.area}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" 
+                                onclick="selectVillager(${JSON.stringify(villager).replace(/"/g, '&quot;')})">
+                            选择
+                        </button>
+                    </td>
+                </tr>
+            `);
+        });
+        
+        new bootstrap.Modal('#multipleResultsModal').show();
+    }
+
+    function selectVillager(villager) {
+        $('#multipleResultsModal').modal('hide');
+        fillVillagerInfo(villager);
+    }
 </script>
 {% endblock %}
