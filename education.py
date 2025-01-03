@@ -1,7 +1,7 @@
 from datetime import datetime
 from flask import Blueprint, render_template, request, jsonify, session
 from models import User, Villager, UniversitySubsidy, HighSchoolReimbursement, db
-from wraps import login_required
+from wraps import login_required, area_required
 
 education_bp = Blueprint('education', __name__)
 
@@ -35,8 +35,8 @@ def search_university():
         villager_query = villager_query.filter(Villager.id_card.like(f'%{query}%'))
 
     if session.get('role') != '管理员':
-        user_area = User.query.get(session['user_id']).area
-        villager_query = villager_query.filter(Villager.area == user_area)
+        user_areas = User.query.get(session['user_id']).area.split(',')
+        villager_query = villager_query.filter(Villager.area.in_(user_areas))
         
     villagers = villager_query.all()
 

@@ -2,7 +2,7 @@ from datetime import datetime
 from sqlalchemy import alias
 from flask import Blueprint, render_template, request, jsonify, session, flash, redirect, url_for
 from models import HighSchoolReimbursement, HouseholdHead, UniversitySubsidy, User, Villager, Welfare, WelfareConfig, WelfareRecord, db
-from wraps import login_required, admin_required
+from wraps import login_required, admin_required, area_required
 import pandas as pd
 
 welfare_bp = Blueprint('welfare', __name__)
@@ -97,8 +97,8 @@ def search():
 
     # 权限过滤
     if session.get('role') != '管理员':
-        user_area = User.query.get(session['user_id']).area
-        villager_query = villager_query.filter(Villager.area == user_area)
+        user_areas = User.query.get(session['user_id']).area.split(',')
+        villager_query = villager_query.filter(Villager.area.in_(user_areas))
 
     villagers = villager_query.all()
     
@@ -171,6 +171,7 @@ def search():
 
 @welfare_bp.route('/save', methods=['POST'])
 @login_required
+@area_required
 def save_welfare():
     data = request.json
     villager_id = data.get('villager_id')

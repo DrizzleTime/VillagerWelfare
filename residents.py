@@ -6,7 +6,7 @@ import pandas as pd
 from werkzeug.utils import secure_filename
 import os
 
-from wraps import login_required, admin_required
+from wraps import login_required, admin_required, area_required
 
 residents_bp = Blueprint('residents', __name__)
 
@@ -18,8 +18,6 @@ def residents():
     per_page = 10
 
     query = Villager.query
-    if session['role'] != '管理员':
-        query = query.filter_by(area=User.query.get(session['user_id']).area)
 
     residents = query.paginate(page=page, per_page=per_page, error_out=False)
     
@@ -47,9 +45,6 @@ def search_residents():
     else:
         residents = Villager.query.filter(Villager.id_card.like(f'%{query}%'))
 
-    if session.get('role') != '管理员':
-        user_area = User.query.get(session['user_id']).area
-        residents = residents.filter_by(area=user_area)
 
     results = residents.all()
 
@@ -85,13 +80,10 @@ def search_residents():
 
 @residents_bp.route('/<int:id>')
 @login_required
+@area_required
 def get_resident(id):
     resident = Villager.query.get_or_404(id)
 
-    if session.get('role') != '管理员':
-        user_area = User.query.get(session['user_id']).area
-        if resident.area != user_area:
-            return jsonify({'error': '无权访问该村民信息'}), 403
 
     household_members = [m.to_dict_simple() for m in resident.household_head.members] if resident.household_head else []
 
@@ -103,6 +95,7 @@ def get_resident(id):
 
 @residents_bp.route('/new', methods=['POST'])
 @login_required
+@area_required
 def create_resident():
     data = request.get_json()
     required_fields = ['name','id_card','gender','birth_date','bank_account','area']
@@ -155,6 +148,7 @@ def create_resident():
 
 @residents_bp.route('/<int:id>/save', methods=['POST'])
 @login_required
+@area_required
 def save_resident_by_id(id):
     data = request.get_json()
     resident = Villager.query.get_or_404(id)
