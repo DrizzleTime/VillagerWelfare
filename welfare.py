@@ -403,8 +403,6 @@ def calculate_welfare_amounts(villager, year):
         'household_head_name': villager.household_head.head.name if villager.household_head else '',
         'bank_account': villager.bank_account,
         'household_head_bank_account': villager.household_head.head.bank_account if villager.household_head else '',
-        'issued_bank_account': villager.household_head.head.bank_account if villager.household_head else villager.bank_account,
-        
         'basic_welfare': {
             'eligible': villager.welfare_eligible,
             'base_amount': config.basic_welfare_amount,  # 添加原始基础金额
