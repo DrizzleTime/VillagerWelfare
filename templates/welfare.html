@@ -94,10 +94,16 @@
                             <label class="form-label">基础金额</label>
                             <input type="number" class="form-control" name="basic_welfare_base" readonly>
                         </div>
-  
+                        <div class="col-md-3">
+                            <label class="form-label">实际发放金额</label>
+                            <input type="number" class="form-control" name="basic_welfare_amount" readonly>
+                        </div>
                         <div class="col-md-4">
                             <label class="form-label">发放日期</label>
                             <input type="date" class="form-control" name="basic_welfare_date">
+                        </div>
+                        <div class="col-12">
+                            <div class="alert alert-info mt-2" id="basicWelfareMessage"></div>
                         </div>
                     </div>
                 </div>
@@ -306,6 +312,7 @@
             $('[name="basic_welfare_base"]').val(basic.base_amount);
             $('[name="basic_welfare_amount"]').val(basic.amount);
             $('[name="basic_welfare_date"]').val(basic.issue_date);
+            $('#basicWelfareMessage').text(basic.message);  // 显示提示信息
         }
 
         // 高中学费减免
@@ -330,30 +337,69 @@
         if (elderlyWelfare.eligible) {
             const currentAge = elderlyWelfare.current_age;
             
-            // 显示养老金总金额和发放日期
-            elderlyContainer.append(`
-                <div class="col-md-12">
-                    <h6>当前年龄: ${currentAge}岁</h6>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">养老金金额</label>
-                    <input type="number" class="form-control" name="elderly_welfare_amount" value="${elderlyWelfare.amount}" readonly>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">养老金发放日期</label>
-                    <input type="date" class="form-control" name="elderly_welfare_issue_date" value="${elderlyWelfare.issue_date}" readonly>
-                </div>
-            `);
+            // // 显示养老金总金额和发放日期
+            // elderlyContainer.append(`
+            //     <div class="col-md-12">
+            //         <h6>当前年龄: ${currentAge}岁</h6>
+            //     </div>
+            //     <div class="col-md-4">
+            //         <label class="form-label">养老金金额</label>
+            //         <input type="number" class="form-control" name="elderly_welfare_amount" value="${elderlyWelfare.amount}" readonly>
+            //     </div>
+            //     <div class="col-md-4">
+            //         <label class="form-label">养老金发放日期</label>
+            //         <input type="date" class="form-control" name="elderly_welfare_issue_date" value="${elderlyWelfare.issue_date}" readonly>
+            //     </div>
+            // `);
 
-            // 根据年龄段显示对应阶段
+            // // 根据年龄段显示对应阶段
+            // let stageText = '';
+            // if (currentAge >= 70 && currentAge < 80) {
+            //     stageText = '第一阶段 (70-79岁)';
+            // } else if (currentAge >= 80 && currentAge < 90) {
+            //     stageText = '第二阶段 (80-89岁)';
+            // } else if (currentAge >= 90 && currentAge < 100) {
+            //     stageText = '第三阶段 (90-99岁)';
+            // } else if (currentAge >= 100) {
+            //     stageText = '第四阶段 (≥100岁)';
+            // }
+
+            // elderlyContainer.append(`
+            //     <div class="col-md-12 mt-3">
+            //         <h6>当前养老金阶段: ${stageText}</h6>
+            //     </div>
+            // `);
+        } else {
+            // 如果不符合养老金条件，隐藏整个养老金配置区域
+            elderlyContainer.closest('.col-12').hide();
+        }
+
+        // 修改养老金配置区域的代码
+        elderlyContainer.append(`
+            <div class="col-md-12">
+                <h6>发放时年龄: ${elderlyWelfare.age_at_issue}岁</h6>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">养老金金额</label>
+                <input type="number" class="form-control" name="elderly_welfare_amount" value="${elderlyWelfare.amount}" readonly>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">养老金发放日期</label>
+                <input type="date" class="form-control" name="elderly_welfare_issue_date" value="${elderlyWelfare.issue_date}" readonly>
+            </div>
+        `);
+
+        // 根据发放时年龄段显示对应阶段
+        if (elderlyWelfare.eligible) {
             let stageText = '';
-            if (currentAge >= 70 && currentAge < 80) {
+            const age = elderlyWelfare.age_at_issue;
+            if (age >= 70 && age < 80) {
                 stageText = '第一阶段 (70-79岁)';
-            } else if (currentAge >= 80 && currentAge < 90) {
+            } else if (age >= 80 && age < 90) {
                 stageText = '第二阶段 (80-89岁)';
-            } else if (currentAge >= 90 && currentAge < 100) {
+            } else if (age >= 90 && age < 100) {
                 stageText = '第三阶段 (90-99岁)';
-            } else if (currentAge >= 100) {
+            } else if (age >= 100) {
                 stageText = '第四阶段 (≥100岁)';
             }
 
@@ -362,9 +408,6 @@
                     <h6>当前养老金阶段: ${stageText}</h6>
                 </div>
             `);
-        } else {
-            // 如果不符合养老金条件，隐藏整个养老金配置区域
-            elderlyContainer.closest('.col-12').hide();
         }
 
         // 显示大学生补贴信息

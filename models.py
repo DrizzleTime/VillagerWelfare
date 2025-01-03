@@ -73,7 +73,7 @@ class Villager(db.Model):
     move_out_date = db.Column(db.Date)
     move_out_location = db.Column(db.Text)
     moved_in = db.Column(db.Boolean, default=False)
-    move_in_date = db.Column(db.Date)
+    move_in_date = db.Column(db.Date)  # 新增迁入日期
     move_in_location = db.Column(db.Text)
     deceased = db.Column(db.Boolean, default=False)
     death_date = db.Column(db.Date)
@@ -91,6 +91,7 @@ class Villager(db.Model):
             age = today.year - self.birth_date.year
             if (today.month, today.day) < (self.birth_date.month, self.birth_date.day):
                 age -= 1
+            print("test",age)
             return age
         return None
 

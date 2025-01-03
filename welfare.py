@@ -307,31 +307,93 @@ def calculate_welfare_amounts(villager, year):
     if not config:
         return None
 
-    # 构建基础数据
-    birth_date = villager.birth_date
-    today = datetime.now()
-    age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+    # 计算居住时间
+    start_date = datetime(year, 1, 1).date()
+    end_date = datetime(year, 12, 31).date()
+    
+    # 只有在确实发生迁入迁出的情况下才计算居住时间
+    residency_less_than_year = False
+    basic_welfare_message = '基本福利金额正常'
+    
+    if villager.moved_in or villager.moved_out:
+        if villager.move_in_date:
+            residency_start = max(villager.move_in_date, start_date)
+        else:
+            residency_start = start_date
+        
+        if villager.move_out_date:
+            residency_end = min(villager.move_out_date, end_date)
+        else:
+            residency_end = end_date
+        
+        # 只在同一年份内计算
+        if residency_start.year == year and residency_end.year == year:
+            residency_days = (residency_end - residency_start).days + 1
+            residency_time = residency_days / 365.25
+            residency_less_than_year = residency_time < 1
+            if residency_less_than_year:
+                basic_welfare_message = f'本年度居住不足一年，基本福利金额减半'
     
     # 计算基本福利
     basic_amount = config.basic_welfare_amount
-    if villager.moved_in and villager.move_in_date.year == year and villager.move_in_date.month > 6:
-        basic_amount /= 2
-    elif villager.moved_out and villager.move_out_date.year == year and villager.move_out_date.month <= 6:
-        basic_amount /= 2
+    basic_welfare_message = '基本福利金额正常'
     
-    # 计算4个养老金阶段
+    # 检查是否需要减半
+    need_half = False
+    
+    # 检查出生时间（如果是当年出生）
+    if villager.birth_date and villager.birth_date.year == year:
+        if villager.birth_date.month > 6:  # 下半年出生
+            need_half = True
+            basic_welfare_message = f'本年度{villager.birth_date.month}月出生，发放半年基础福利'
+    
+    # 检查死亡时间（如果当年死亡）
+    elif villager.deceased and villager.death_date and villager.death_date.year == year:
+        if villager.death_date.month <= 6:  # 上半年死亡
+            need_half = True
+            basic_welfare_message = f'本年度{villager.death_date.month}月死亡，发放半年基础福利'
+    
+    # 检查迁入时间
+    elif villager.moved_in and villager.move_in_date and villager.move_in_date.year == year:
+        if villager.move_in_date.month > 6:  # 下半年迁入
+            need_half = True
+            basic_welfare_message = f'本年度{villager.move_in_date.month}月迁入，发放半年基础福利'
+    
+    # 检查迁出时间
+    elif villager.moved_out and villager.move_out_date and villager.move_out_date.year == year:
+        if villager.move_out_date.month <= 6:  # 上半年迁出
+            need_half = True
+            basic_welfare_message = f'本年度{villager.move_out_date.month}月迁出，发放半年基础福利'
+    
+    if need_half:
+        basic_amount /= 2
+
+    # 计算养老金阶段和金额
     elderly_amount = 0
-    age = today.year - birth_date.year + 1  # 修改年龄计算方式
+    elderly_issue_date = config.elderly_welfare_issue_date
     
-    if age >= 70 and age < 80:
-        elderly_amount = config.elderly_welfare_stage1_amount
-    elif age >= 80 and age < 90:
-        elderly_amount = config.elderly_welfare_stage2_amount
-    elif age >= 90 and age < 100:
-        elderly_amount = config.elderly_welfare_stage3_amount
-    elif age >= 100:
-        elderly_amount = config.elderly_welfare_stage4_amount
-                
+    if elderly_issue_date:
+        # 计算发放日期时的年龄
+        age_at_issue = elderly_issue_date.year - villager.birth_date.year
+        if (elderly_issue_date.month, elderly_issue_date.day) < (villager.birth_date.month, villager.birth_date.day):
+            age_at_issue -= 1
+            
+        # 根据发放日期时的年龄判断养老金阶段和金额
+        if age_at_issue >= 70 and age_at_issue < 80:
+            elderly_amount = config.elderly_welfare_stage1_amount
+            stage = 'stage1'
+        elif age_at_issue >= 80 and age_at_issue < 90:
+            elderly_amount = config.elderly_welfare_stage2_amount
+            stage = 'stage2'
+        elif age_at_issue >= 90 and age_at_issue < 100:
+            elderly_amount = config.elderly_welfare_stage3_amount
+            stage = 'stage3'
+        elif age_at_issue >= 100:
+            elderly_amount = config.elderly_welfare_stage4_amount
+            stage = 'stage4'
+        else:
+            stage = None
+    
     return {
         'villager_id': villager.id,
         'name': villager.name,
@@ -344,26 +406,25 @@ def calculate_welfare_amounts(villager, year):
         
         'basic_welfare': {
             'eligible': villager.welfare_eligible,
-            'base_amount': config.basic_welfare_amount,
+            'base_amount': config.basic_welfare_amount,  # 添加原始基础金额
+            'amount': basic_amount,  # 实际发放金额（可能减半）
             'issue_date': config.basic_welfare_issue_date.strftime('%Y-%m-%d') if config.basic_welfare_issue_date else '',
+            'message': basic_welfare_message  # 添加提示信息
         },
         
         'elderly_welfare': {
-            'eligible': age >= 70,  # 修改判断条件
+            'eligible': age_at_issue >= 70 if elderly_issue_date else False,
             'amount': elderly_amount,
-            'issue_date': config.elderly_welfare_issue_date.strftime('%Y-%m-%d') if config.elderly_welfare_issue_date else '',
-            'current_age': age,  # 添加当前年龄
-            'stage': 'stage1' if age >= 70 and age < 80 else 
-                    'stage2' if age >= 80 and age < 90 else 
-                    'stage3' if age >= 90 and age < 100 else 
-                    'stage4' if age >= 100 else None
+            'issue_date': elderly_issue_date.strftime('%Y-%m-%d') if elderly_issue_date else '',
+            'age_at_issue': age_at_issue if elderly_issue_date else None,
+            'stage': stage
         },
         
         'welfare_records': {
             'basic': get_basic_welfare_record(villager.id, year),
+            'high_school': get_high_school_welfare_record(villager.id, year),
             'elderly': get_elderly_welfare_record(villager.id, year),
-            'university': get_university_welfare_record(villager.id, year),
-            'high_school': get_high_school_welfare_record(villager.id, year)
+            'university': get_university_welfare_record(villager.id, year)
         },
         'basic_welfare_eligible': villager.welfare_eligible,
         'elderly_welfare_eligible': villager.elderly_welfare_eligible,
@@ -383,11 +444,12 @@ def calculate_welfare_amounts(villager, year):
             {
                 'school_name': r.school_name,
                 'amount': r.amount,
-                'registration_date': r.registration_date.strftime('%Y-%m-%d') if r.registration_date else None,
                 'invoice_number': r.invoice_number,
                 'invoice_date': r.invoice_date.strftime('%Y-%m-%d') if r.invoice_date else None,
+                'registration_date': r.registration_date.strftime('%Y-%m-%d') if r.registration_date else None,
                 'issue_date': r.issue_date.strftime('%Y-%m-%d') if r.issue_date else None,
-                'is_issued': r.is_issued
+                'is_issued': r.is_issued,
+                'bank_account': r.bank_account
             }
             for r in villager.high_school_reimbursements
         ]
@@ -399,6 +461,25 @@ def save_welfare_records(villager_id, year, data):
     # 获取村民实例
     villager = Villager.query.get_or_404(villager_id)
     
+    # 计算居住时间
+    start_date = datetime(year, 1, 1).date()
+    end_date = datetime(year, 12, 31).date()
+    
+    if villager.move_in_date:
+        residency_start = max(villager.move_in_date, start_date)
+    else:
+        residency_start = start_date
+    
+    if villager.move_out_date:
+        residency_end = min(villager.move_out_date, end_date)
+    else:
+        residency_end = end_date
+    
+    residency_days = (residency_end - residency_start).days + 1
+    residency_time = residency_days / 365.25  # 计算居住年数
+    
+    residency_less_than_year = residency_time < 1
+
     # 保存基本福利记录
     if data.get('basic_welfare_eligible'):
         basic_welfare = WelfareRecord.query.filter_by(
@@ -411,7 +492,11 @@ def save_welfare_records(villager_id, year, data):
             type='basic'
         )
         
-        basic_welfare.amount = data.get('basic_welfare_amount', 0)
+        basic_amount = data.get('basic_welfare_amount', 0)
+        if residency_less_than_year:
+            basic_amount /= 2  # 居住时间不足一年，减半
+        
+        basic_welfare.amount = basic_amount
         basic_welfare.issued = bool(data.get('basic_welfare_issued'))
         if data.get('basic_welfare_date'):
             basic_welfare.issue_date = datetime.strptime(data['basic_welfare_date'], '%Y-%m-%d').date()
@@ -463,6 +548,8 @@ def save_welfare_records(villager_id, year, data):
         elderly.bank_account = villager.bank_account if not villager.household_head else villager.household_head.head.bank_account
             
         db.session.add(elderly)
+
+    db.session.commit()
 
 def get_welfare_records(villager_id, year):
     """获取村民指定年份的福利记录"""

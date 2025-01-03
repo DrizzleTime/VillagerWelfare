@@ -385,8 +385,12 @@ function displayResident(resident) {
 $('input[name="moved_out"]').change(function() {
     if ($(this).is(':checked')) {
         $('.moved_out_fields').removeClass('d-none');
+        // 自动更新户籍状态
+        $('input[name="residency_status"]').prop('checked', false);
     } else {
         $('.moved_out_fields').addClass('d-none');
+        // 自动更新户籍状态
+        $('input[name="residency_status"]').prop('checked', true);
     }
 });
 

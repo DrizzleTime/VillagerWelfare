@@ -53,11 +53,11 @@ def search_university():
             'current_subsidy': next((
                 {
                     'school_name': s.school_name,
-                    'amount': s.calculate_amount_for_year(datetime.now().year),  # 使用计算方法获取金额
+                    'amount': s.amount,  # 使用输入的金额
                     'issue_date': s.issue_date.strftime('%Y-%m-%d') if s.issue_date else None,
                     'start_year': s.start_year.strftime('%Y-%m-%d') if s.start_year else None,
                     'end_year': s.end_year.strftime('%Y-%m-%d') if s.end_year else None,
-                    'is_half_year': s.calculate_is_half_year(datetime.now().year),  # 添加是否为半年的标记
+                    'is_half_year': False,  # 不再使用半年的标记
                 }
                 for s in v.university_subsidies
                 if not s.end_year or s.end_year >= datetime.now().date()
@@ -66,7 +66,7 @@ def search_university():
             'subsidy_history': [
                 {
                     'school_name': s.school_name,
-                    'amount': s.amount,
+                    'amount': s.amount,  # 使用输入的金额
                     'issue_date': s.issue_date.strftime('%Y-%m-%d') if s.issue_date else None,
                     'start_year': s.start_year.strftime('%Y-%m-%d') if s.start_year else None,
                     'end_year': s.end_year.strftime('%Y-%m-%d') if s.end_year else None,
@@ -148,32 +148,30 @@ def save_university():
         villager = Villager.query.get(data['villager_id'])
         bank_account = villager.bank_account if not villager.household_head else villager.household_head.head.bank_account
 
-        # 计算当年应发放金额
-        start_year_date = datetime.strptime(data['start_year'], '%Y-%m-%d').date()
-        end_year_date = datetime.strptime(data['end_year'], '%Y-%m-%d').date()
+        # 移除自动减半逻辑
+        # start_year_date = datetime.strptime(data['start_year'], '%Y-%m-%d').date()
+        # end_year_date = datetime.strptime(data['end_year'], '%Y-%m-%d').date()
         amount = float(data['amount'])
         
-        # 如果是入学年且在6月后入学，或者是毕业年且在6月前毕业，只发放一半金额
-        current_year = datetime.now().year
-        if (start_year_date.year == current_year and start_year_date.month > 6) or \
-           (end_year_date.year == current_year and end_year_date.month <= 6):
-            amount = amount / 2
+        # if (start_year_date.year == current_year and start_year_date.month > 6) or \
+        #    (end_year_date.year == current_year and end_year_date.month <= 6):
+        #     amount = amount / 2
 
         subsidy = UniversitySubsidy(
             villager_id=data['villager_id'],
             school_name=data['school_name'],
-            amount=amount,  # 使用计算后的金额
+            amount=amount,  # 使用输入的金额
             issue_date=datetime.strptime(data['issue_date'], '%Y-%m-%d').date(),
-            start_year=start_year_date,
-            end_year=end_year_date,
-            bank_account=bank_account  # 添加银行账户
+            start_year=datetime.strptime(data['start_year'], '%Y-%m-%d').date(),
+            end_year=datetime.strptime(data['end_year'], '%Y-%m-%d').date(),
+            bank_account=bank_account
         )
         db.session.add(subsidy)
         db.session.commit()
         return jsonify({
             'success': True, 
-            'amount': amount,  # 返回实际发放金额
-            'message': '补贴已保存，' + ('按半年计算' if amount != float(data['amount']) else '按全年计算')
+            'amount': amount,  # 返回输入的金额
+            'message': '补贴已保存'
         })
     except Exception as e:
         db.session.rollback()
@@ -219,20 +217,19 @@ def add_university_subsidy():
         villager = Villager.query.get(villager_id)
         bank_account = villager.bank_account if not villager.household_head else villager.household_head.head.bank_account
 
-        # 创建补贴记录
         subsidy = UniversitySubsidy(
             villager_id=villager_id,
             school_name=school_name,
-            amount=amount,  # 存储原始金额
+            amount=amount,  # 存储输入的金额
             start_year=start_year,
             end_year=end_year,
-            bank_account=bank_account  # 添加银行账户
+            bank_account=bank_account
         )
 
-        # 如果是非全年，立即调整金额
-        current_year = datetime.now().year
-        if subsidy.calculate_is_half_year(current_year):
-            subsidy.amount = amount / 2  # 直接存储半额
+        # 移除自动减半逻辑
+        # current_year = datetime.now().year
+        # if subsidy.calculate_is_half_year(current_year):
+        #     subsidy.amount = amount / 2  # 直接存储半额
 
         db.session.add(subsidy)
         db.session.commit()
