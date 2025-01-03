@@ -271,9 +271,18 @@ def export_moved_in():
 @export_bp.route('/welfare_export', methods=['POST'])
 @login_required
 def welfare_export():
-    export_type = request.form.get('export_type')  # e.g., 'all', 'basic', 'elderly', 'university', 'highschool'
-    year_input = request.form.get('year_input')
-    filter_by = request.form.get('filter_by')  # e.g., 'individual', 'bank_account'
+    export_type = request.form.get('export_type')
+    year_input = int(request.form.get('year_input'))
+    filter_by = request.form.get('filter_by')
+
+    # 检查是否配置了该年份的福利信息
+    config = WelfareConfig.query.filter_by(year=year_input).first()
+    if not config:
+        return jsonify({
+            'error': f'未找到{year_input}年度的福利配置信息，请先配置该年度的福利信息',
+            'need_config': True
+        }), 404
+
     filename = f"welfare_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
 
     villagers = Villager.query.all()

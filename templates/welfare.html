@@ -264,7 +264,13 @@
                 }
             },
             error: function(xhr) {
-                alert(xhr.responseJSON?.error || '查询失败，请稍后重试');
+                if (xhr.status === 404 && xhr.responseJSON?.need_config) {
+                    if (confirm(xhr.responseJSON.error + '\n是否立即前往配置？')) {
+                        window.location.href = '/welfare/config/view';
+                    }
+                } else {
+                    alert(xhr.responseJSON?.error || '查询失败，请稍后重试');
+                }
             }
         });
     });

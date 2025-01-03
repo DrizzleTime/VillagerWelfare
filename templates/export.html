@@ -64,7 +64,7 @@
                 <h5 class="card-title mb-0">福利导出</h5>
             </div>
             <div class="card-body">
-                <form action="{{ url_for('export.welfare_export') }}" method="post">
+                <form id="exportForm" action="{{ url_for('export.welfare_export') }}" method="post">
                     <div class="mb-3">
                         <label for="year_input" class="form-label">年份：</label>
                         <select name="year_input" id="year_input" class="form-select">
@@ -162,5 +162,55 @@
         function hideExportProgress() {
             $('#exportProgress').addClass('d-none');
         }
+
+        // 修改福利导出表单提交处理
+        $('#exportForm').on('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            showExportProgress(); // 显示导出进度提示
+
+            $.ajax({
+                url: '/export/welfare_export',
+                method: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                xhrFields: {
+                    responseType: 'blob'  // 设置响应类型为blob
+                },
+                success: function(blob) {
+                    hideExportProgress(); // 隐藏导出进度提示
+                    // 创建下载链接
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `welfare_export_${new Date().getTime()}.xlsx`; // 文件名
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    a.remove();
+                },
+                error: function(xhr) {
+                    hideExportProgress(); // 隐藏导出进度提示
+                    if (xhr.status === 404 && xhr.responseJSON?.need_config) {
+                        if (confirm(xhr.responseJSON.error + '\n是否立即前往配置？')) {
+                            window.location.href = '/welfare/config/view';
+                        }
+                    } else {
+                        // 尝试解析错误信息
+                        if (xhr.responseType === 'blob') {
+                            const reader = new FileReader();
+                            reader.onload = function() {
+                                const errorMessage = JSON.parse(this.result).error;
+                                alert(errorMessage || '导出失败，请稍后重试');
+                            };
+                            reader.readAsText(xhr.response);
+                        } else {
+                            alert(xhr.responseJSON?.error || '导出失败，请稍后重试');
+                        }
+                    }
+                }
+            });
+        });
     </script>
 {% endblock %}

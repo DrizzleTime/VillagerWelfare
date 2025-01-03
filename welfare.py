@@ -22,6 +22,14 @@ def search():
     year = int(request.args.get('year', datetime.now().year))
     villager_id = request.args.get('villager_id')  # 添加获取villager_id
 
+    # 首先检查是否配置了该年份的福利信息
+    config = WelfareConfig.query.filter_by(year=year).first()
+    if not config:
+        return jsonify({
+            'error': f'未找到{year}年度的福利配置信息，请先配置该年度的福利信息',
+            'need_config': True
+        }), 404
+
     # 如果有villager_id，直接查询特定村民
     if villager_id:
         villager = Villager.query.get_or_404(villager_id)
